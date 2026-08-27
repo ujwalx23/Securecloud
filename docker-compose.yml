@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: securecloud-backend
+    restart: always
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/storage/cloudstorage.db
+      - JWT_SECRET_KEY=production-super-secret-jwt-key-change-in-prod-2026!
+      - ENVIRONMENT=production
+    volumes:
+      - backend_storage:/app/storage
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: securecloud-frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+
+volumes:
+  backend_storage:

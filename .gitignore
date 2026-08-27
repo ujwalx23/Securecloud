@@ -1,0 +1,31 @@
+# Environments & Packages
+venv/
+backend/venv/
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Python Cache & Databases
+__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite
+*.sqlite3
+backend/*.db
+backend/*.sqlite3
+.pytest_cache/
+
+# Local Encrypted Payloads & Secrets
+backend/storage/*.enc
+.env
+.env.local
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
