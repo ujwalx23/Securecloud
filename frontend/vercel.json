@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://securecloud-backend.onrender.com/api/$1"
+    }
+  ]
+}

@@ -4,11 +4,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from backend.database import init_db, AsyncSessionLocal
-from backend.models import User, ActivityLog
-from backend.auth import get_password_hash
-from backend.crypto_utils import generate_rsa_keypair, encrypt_user_private_key
-from backend.routes import auth_routes, folder_routes, file_routes, share_routes, vault_routes, stats_routes
+try:
+    from backend.database import init_db, AsyncSessionLocal
+    from backend.models import User, ActivityLog
+    from backend.auth import get_password_hash
+    from backend.crypto_utils import generate_rsa_keypair, encrypt_user_private_key
+    from backend.routes import auth_routes, folder_routes, file_routes, share_routes, vault_routes, stats_routes
+except ImportError:
+    from database import init_db, AsyncSessionLocal
+    from models import User, ActivityLog
+    from auth import get_password_hash
+    from crypto_utils import generate_rsa_keypair, encrypt_user_private_key
+    from routes import auth_routes, folder_routes, file_routes, share_routes, vault_routes, stats_routes
 import uuid
 
 @asynccontextmanager

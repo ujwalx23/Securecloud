@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 
 const MainApp = () => {
-  const { user, token, loading, login, register } = useAuth();
+  const { user, token, loading, login, register, demoLogin, isDemoMode } = useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -409,6 +409,24 @@ const MainApp = () => {
               </button>
             </div>
 
+            {/* Demo Mode Bypass */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={demoLogin}
+                className="w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl text-xs font-bold
+                  bg-gradient-to-r from-amber-500/15 to-orange-500/15
+                  border border-amber-400/40 hover:border-amber-400/70
+                  text-amber-300 hover:text-amber-200
+                  transition-all duration-200 hover:shadow-lg hover:shadow-amber-500/10
+                  group"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                ⚡ Enter Demo Mode — No Backend Required
+                <span className="text-[10px] font-mono text-amber-400/60 ml-1">(Vercel Preview)</span>
+              </button>
+            </div>
+
             <div className="text-center text-xs text-gray-400">
               {isRegister ? 'Already have an encrypted vault?' : "Don't have a vault account?"}{' '}
               <button
@@ -429,6 +447,14 @@ const MainApp = () => {
 
   return (
     <div className="min-h-screen bg-[#050811] text-gray-100 p-4 md:p-6 max-w-[1680px] mx-auto animate-fade-in">
+      {isDemoMode && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-400/30 flex items-center gap-3 text-xs font-mono text-amber-300">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="font-bold">DEMO MODE</span>
+          <span className="text-amber-400/60">—</span>
+          <span>Frontend-only preview. No backend connected. Data shown is UI demonstration only.</span>
+        </div>
+      )}
       <Navbar
         onOpenUpload={() => setShowUploadModal(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
