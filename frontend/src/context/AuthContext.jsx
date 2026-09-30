@@ -2,21 +2,10 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const DEMO_USER = {
-  id: 'demo-user-001',
-  email: 'admin@securecloud.io',
-  full_name: 'Alex Mercer (Demo Mode)',
-  storage_used_bytes: 2.4 * 1024 * 1024 * 1024,
-  storage_quota_bytes: 15 * 1024 * 1024 * 1024,
-  created_at: new Date().toISOString(),
-  is_demo: true,
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('securecloud_token') || null);
   const [loading, setLoading] = useState(true);
-  const [isDemoMode, setIsDemoMode] = useState(false);
 
   const fetchProfile = async (authToken) => {
     try {
@@ -73,22 +62,14 @@ export const AuthProvider = ({ children }) => {
     await login(email, password);
   };
 
-  const demoLogin = () => {
-    setUser(DEMO_USER);
-    setToken('demo-token');
-    setIsDemoMode(true);
-    setLoading(false);
-  };
-
   const logout = () => {
     localStorage.removeItem('securecloud_token');
     setToken(null);
     setUser(null);
-    setIsDemoMode(false);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, demoLogin, isDemoMode, refreshProfile: () => fetchProfile(token) }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshProfile: () => fetchProfile(token) }}>
       {children}
     </AuthContext.Provider>
   );
