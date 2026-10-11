@@ -232,7 +232,11 @@ export const FileManager = ({
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      setAccessError(err.message);
+      console.error('Download shared file error:', err);
+      const msg = err.message === 'Failed to fetch'
+        ? 'Connection or server error. The backend was unavailable or encountered an error. Please retry.'
+        : err.message;
+      setAccessError(msg);
     } finally {
       setDownloadingFileId(null);
     }
@@ -371,9 +375,18 @@ export const FileManager = ({
       )}
 
       {accessError && (
-        <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-3 shadow-lg shadow-rose-500/10">
-          <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
-          <span>{accessError}</span>
+        <div className="p-4 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center justify-between gap-3 shadow-lg shadow-rose-500/10 animate-fade-in">
+          <div className="flex items-center gap-3 min-w-0">
+            <ShieldAlert className="w-5 h-5 text-rose-400 shrink-0" />
+            <span className="break-words">{accessError}</span>
+          </div>
+          <button
+            onClick={() => setAccessError(null)}
+            className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400 hover:text-rose-200 shrink-0"
+            title="Dismiss alert"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 

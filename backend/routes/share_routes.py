@@ -77,7 +77,7 @@ async def share_file_with_user(
             UserShare.is_revoked == False
         )
     )
-    if existing_share_res.scalar_one_or_none():
+    if existing_share_res.scalars().first():
         raise HTTPException(status_code=400, detail=f"File is already shared with {recipient.email}.")
 
     owner_priv_key = decrypt_user_private_key(current_user.encrypted_private_key_pem, current_user.id)
@@ -259,7 +259,7 @@ async def block_file_sender(
             UserConnection.user_b_id == u_max
         )
     )
-    conn = res.scalar_one_or_none()
+    conn = res.scalars().first()
     if not conn:
         conn = UserConnection(
             user_a_id=u_min,
@@ -301,14 +301,14 @@ async def download_user_shared_file(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Support lookup by either file_id or share_id
+    # Support lookup by either file_id or share_id; pick latest active share
     share_res = await db.execute(
         select(UserShare).where(
             or_(UserShare.file_id == file_id, UserShare.id == file_id),
             UserShare.recipient_id == current_user.id
-        )
+        ).order_by(UserShare.is_revoked.asc(), desc(UserShare.created_at))
     )
-    user_share = share_res.scalar_one_or_none()
+    user_share = share_res.scalars().first()
     
     if not user_share or user_share.is_revoked:
         raise HTTPException(
