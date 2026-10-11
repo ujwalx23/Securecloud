@@ -42,6 +42,14 @@ class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
 
+class SendPasswordOtpRequest(BaseModel):
+    email: Optional[EmailStr] = None  # Optional if authenticated, required if unauthenticated
+
+class SetPasswordWithOtpRequest(BaseModel):
+    email: Optional[EmailStr] = None  # Optional if user is authenticated
+    otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+    new_password: str = Field(..., min_length=8, description="New password at least 8 chars")
+
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
@@ -79,6 +87,9 @@ class UserResponse(BaseModel):
     text_storage_used_bytes: int
     plan_type: str
     is_promotional_premium: bool
+    trial_started_at: Optional[datetime] = None
+    trial_expires_at: Optional[datetime] = None
+    subscription_expires_at: Optional[datetime] = None
     queue_position: Optional[int] = None
     queue_joined_at: Optional[datetime] = None
     privacy_profile_public: bool
@@ -230,12 +241,25 @@ class SubscriptionStatusResponse(BaseModel):
     text_storage_used_bytes: int
     total_slots_claimed: int
     total_slots_available: int
-    custom_plan_contact: str = "7977339435"
+    trial_started_at: Optional[datetime] = None
+    trial_expires_at: Optional[datetime] = None
+    has_used_trial: bool = False
+    subscription_expires_at: Optional[datetime] = None
+    custom_plan_contact: str = "ujwalsingh164@gmail.com"
 
 class UpgradePlanRequest(BaseModel):
     plan_name: str = Field(..., description="'premium' or 'custom'")
     payment_id: Optional[str] = None
     order_id: Optional[str] = None
+
+class StripeCheckoutRequest(BaseModel):
+    card_number: Optional[str] = None
+    exp_month: Optional[str] = None
+    exp_year: Optional[str] = None
+    cvc: Optional[str] = None
+    name_on_card: Optional[str] = None
+    postal_code: Optional[str] = None
+    payment_method_id: Optional[str] = None
 
 # Admin Schemas
 class AdminOverviewResponse(BaseModel):

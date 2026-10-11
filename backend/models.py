@@ -36,6 +36,9 @@ class User(Base):
     # Subscription & Allocation Status
     plan_type: Mapped[str] = mapped_column(String(20), default="basic")  # "basic", "premium", "custom"
     is_promotional_premium: Mapped[bool] = mapped_column(Boolean, default=False)
+    trial_started_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    trial_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    subscription_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     queue_position: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
     queue_joined_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

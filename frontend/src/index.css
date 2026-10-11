@@ -246,3 +246,33 @@ body::before {
 .animate-beacon {
   animation: pulseBeacon 2.5s infinite ease-in-out;
 }
+
+/* 3D Perspective and Holographic Effects */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.card-3d-hover {
+  transform-style: preserve-3d;
+  transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s ease;
+}
+
+.card-3d-hover:hover {
+  transform: translateY(-4px) rotateX(2deg) rotateY(-1deg);
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 245, 255, 0.2),
+    0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+@keyframes floatOrb {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+
+.animate-float {
+  animation: floatOrb 6s ease-in-out infinite;
+}
+
+.glow-cyan {
+  box-shadow: 0 0 25px rgba(0, 245, 255, 0.25);
+}

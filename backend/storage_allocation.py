@@ -5,7 +5,8 @@ from sqlalchemy import select, func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.models import User, StorageAllocationSlot, Notification, FileItem, TextDocument
 
-PROMOTIONAL_SLOT_QUOTA_BYTES = 1000 * 1024 * 1024  # 1,000 MB = 1,048,576,000 bytes
+PREMIUM_1GB_QUOTA_BYTES = 1024 * 1024 * 1024  # 1 GB = 1,073,741,824 bytes
+PROMOTIONAL_SLOT_QUOTA_BYTES = PREMIUM_1GB_QUOTA_BYTES
 TOTAL_PROMOTIONAL_SLOTS = 10
 BASIC_TEXT_QUOTA_BYTES = 1 * 1024 * 1024  # 1 MB safe text quota (reserves database headroom for chats & logs)
 

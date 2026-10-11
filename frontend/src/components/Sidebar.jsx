@@ -38,6 +38,9 @@ export const Sidebar = ({
       items: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'files', label: 'My Cloud', icon: Folder, badge: storageStats?.file_count || null },
+        { id: 'shared', label: 'Shared With Me', icon: Share2 },
+        { id: 'favorites', label: 'Starred Files', icon: Star },
+        { id: 'recent', label: 'Recent Files', icon: Clock },
         { id: 'documents', label: 'Notes & Docs', icon: FileText },
         { id: 'chat', label: 'Private Chat', icon: MessageSquare },
         { id: 'contacts', label: 'Contacts', icon: Users },
@@ -172,32 +175,24 @@ export const Sidebar = ({
               </div>
               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
                 user?.plan_type === 'premium'
-                  ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+                  ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20 font-bold'
                   : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
               }`}>
-                {user?.plan_type?.toUpperCase() || 'BASIC'}
+                {user?.plan_type === 'premium' ? '1 GB' : (user?.plan_type?.toUpperCase() || 'BASIC')}
               </span>
             </div>
 
-            {user?.queue_position ? (
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 font-mono">
-                Queue Waitlist: Position #{user.queue_position}
-              </div>
-            ) : (
-              <>
-                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
-                  <div
-                    className="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.max(percentage, 2)}%` }}
-                  />
-                </div>
+            <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                style={{ width: `${Math.max(percentage, totalBytes > 0 ? 2 : 0)}%` }}
+              />
+            </div>
 
-                <div className="flex justify-between text-[10px] text-gray-400 font-mono">
-                  <span>{formatBytes(usedBytes)} used</span>
-                  <span>{formatBytes(totalBytes)}</span>
-                </div>
-              </>
-            )}
+            <div className="flex justify-between text-[10px] text-gray-400 font-mono">
+              <span>{formatBytes(usedBytes)} used</span>
+              <span>{totalBytes >= 1000 * 1024 * 1024 ? '1 GB' : formatBytes(totalBytes)}</span>
+            </div>
           </div>
         </div>
       ) : (

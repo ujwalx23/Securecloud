@@ -22,6 +22,8 @@ from backend.schemas import (
     ResendCodeRequest,
     UserProfileUpdate,
     ChangePasswordRequest,
+    SendPasswordOtpRequest,
+    SetPasswordWithOtpRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
     SessionResponse
@@ -35,7 +37,7 @@ from backend.auth import (
 )
 from backend.crypto_utils import generate_rsa_keypair, encrypt_user_private_key
 from backend.rate_limiter import login_rate_limiter
-from backend.email_service import generate_verification_code, send_verification_email
+from backend.email_service import generate_verification_code, send_verification_email, send_password_otp_email
 from backend.storage_allocation import assign_initial_storage_or_queue, release_slot_and_promote_next
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -557,6 +559,127 @@ async def change_password(
     db.add(activity)
     await db.commit()
     return {"message": "Password updated successfully. Please log in again."}
+
+
+@router.post("/send-password-otp")
+async def send_password_otp(
+    data: SendPasswordOtpRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    target_user = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.replace("Bearer ", "").strip()
+            from jose import jwt
+            from backend.config import JWT_SECRET_KEY, ALGORITHM
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            if user_id:
+                u_res = await db.execute(select(User).where(User.id == user_id))
+                target_user = u_res.scalar_one_or_none()
+        except Exception:
+            pass
+
+    if not target_user:
+        if not data.email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+        clean_email = data.email.strip().lower()
+        u_res = await db.execute(select(User).where(User.email == clean_email))
+        target_user = u_res.scalar_one_or_none()
+
+    if not target_user:
+        return {"message": "If an account exists, a 6-digit OTP has been sent."}
+
+    otp_code = generate_verification_code()
+    target_user.verification_code = otp_code
+    target_user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+    await db.commit()
+
+    await send_password_otp_email(
+        target_user.email,
+        otp_code,
+        target_user.full_name or target_user.username,
+        purpose="Master Password Setup"
+    )
+
+    activity = ActivityLog(
+        user_id=target_user.id,
+        action_type="PASSWORD_OTP_REQUESTED",
+        description="Master Password OTP requested via email.",
+        ip_address=get_client_ip(request)
+    )
+    db.add(activity)
+    await db.commit()
+
+    return {"message": f"6-digit security OTP sent to {target_user.email}."}
+
+
+@router.post("/set-password-with-otp")
+async def set_password_with_otp(
+    data: SetPasswordWithOtpRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    target_user = None
+    auth_header = request.headers.get("authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.replace("Bearer ", "").strip()
+            from jose import jwt
+            from backend.config import JWT_SECRET_KEY, ALGORITHM
+            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+            if user_id:
+                u_res = await db.execute(select(User).where(User.id == user_id))
+                target_user = u_res.scalar_one_or_none()
+        except Exception:
+            pass
+
+    if not target_user:
+        if not data.email:
+            raise HTTPException(status_code=400, detail="Email is required.")
+        clean_email = data.email.strip().lower()
+        u_res = await db.execute(select(User).where(User.email == clean_email))
+        target_user = u_res.scalar_one_or_none()
+
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Account not found.")
+
+    if not target_user.verification_code or target_user.verification_code != data.otp_code.strip():
+        raise HTTPException(status_code=400, detail="Invalid 6-digit OTP. Please check your email.")
+
+    exp = target_user.verification_expires_at
+    if not exp:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new code.")
+    now_cmp = datetime.now(timezone.utc) if exp.tzinfo else datetime.now(timezone.utc).replace(tzinfo=None)
+    if exp < now_cmp:
+        raise HTTPException(status_code=400, detail="OTP has expired. Please request a new code.")
+
+    if len(data.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters.")
+
+    target_user.hashed_password = get_password_hash(data.new_password)
+    target_user.verification_code = None
+    target_user.verification_expires_at = None
+    target_user.updated_at = datetime.now(timezone.utc)
+
+    # Invalidate old sessions
+    sess_res = await db.execute(select(UserSession).where(UserSession.user_id == target_user.id))
+    for s in sess_res.scalars().all():
+        s.is_revoked = True
+
+    activity = ActivityLog(
+        user_id=target_user.id,
+        action_type="MASTER_PASSWORD_SET",
+        description="Master Password configured/reset via verified email OTP.",
+        ip_address=get_client_ip(request)
+    )
+    db.add(activity)
+    await db.commit()
+
+    return {"message": "Master Password set successfully! You can now enter your Zero-Knowledge Vault."}
 
 
 @router.get("/sessions", response_model=List[SessionResponse])

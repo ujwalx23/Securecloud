@@ -18,15 +18,27 @@ import {
 } from 'lucide-react';
 import { VaultLock3D } from './VaultLock3D';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export const VaultView = () => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const { showToast } = useToast();
   const [unlocked, setUnlocked] = useState(false);
   const [masterPassword, setMasterPassword] = useState('');
   const [secrets, setSecrets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [filterType, setFilterType] = useState('all');
+
+  // OTP Setup Modal State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [newMasterPass, setNewMasterPass] = useState('');
+  const [confirmMasterPass, setConfirmMasterPass] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [settingPassLoading, setSettingPassLoading] = useState(false);
+  const [otpError, setOtpError] = useState(null);
   
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState('password');
@@ -122,9 +134,80 @@ export const VaultView = () => {
     return s.secret_type === filterType;
   });
 
+  const handleSendOtp = async () => {
+    setOtpLoading(true);
+    setOtpError(null);
+    try {
+      const res = await fetch('/api/auth/send-password-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ email: user?.email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to send OTP');
+      setOtpSent(true);
+      showToast({
+        type: 'success',
+        title: 'Security OTP Sent',
+        message: `6-digit OTP sent to ${user?.email}`
+      });
+    } catch (err) {
+      setOtpError(err.message);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleSetPasswordWithOtp = async (e) => {
+    e.preventDefault();
+    if (newMasterPass !== confirmMasterPass) {
+      setOtpError('New password and confirm password do not match.');
+      return;
+    }
+    if (newMasterPass.length < 8) {
+      setOtpError('Password must be at least 8 characters.');
+      return;
+    }
+
+    setSettingPassLoading(true);
+    setOtpError(null);
+    try {
+      const res = await fetch('/api/auth/set-password-with-otp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          otp_code: otpCode.trim(),
+          new_password: newMasterPass
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Verification failed');
+      
+      showToast({
+        type: 'success',
+        title: 'Master Password Set!',
+        message: 'Your vault is now unsealed and decrypted.'
+      });
+      setMasterPassword(newMasterPass);
+      setShowOtpModal(false);
+      setUnlocked(true);
+      fetchSecrets();
+    } catch (err) {
+      setOtpError(err.message);
+    } finally {
+      setSettingPassLoading(false);
+    }
+  };
+
   if (!unlocked) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[68vh] animate-fade-in">
+      <div className="flex flex-col items-center justify-center min-h-[68vh] animate-fade-in relative">
         <div className="glass-panel p-8 max-w-md w-full text-center space-y-6 border-cyan-500/30 shadow-2xl relative overflow-hidden">
           <div className="absolute -top-24 -left-24 w-48 h-48 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -152,10 +235,131 @@ export const VaultView = () => {
             </button>
           </form>
 
-          <p className="text-[10px] text-gray-400 font-mono">
-            Zero-knowledge security: Enter your master account password to unseal and decrypt your vault.
-          </p>
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowOtpModal(true);
+                setOtpError(null);
+              }}
+              className="text-xs text-cyan-400 hover:text-cyan-300 font-mono hover:underline flex items-center justify-center gap-1.5 mx-auto"
+            >
+              <Key className="w-3.5 h-3.5" />
+              Google Sign-In or Forgot Password? Set via Email OTP
+            </button>
+            <p className="text-[10px] text-gray-400 font-mono">
+              Zero-knowledge security: Decrypt client-side with your verified credentials.
+            </p>
+          </div>
         </div>
+
+        {/* IN-VAULT OTP SETUP MODAL */}
+        {showOtpModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
+            <div className="glass-panel p-6 max-w-md w-full border-cyan-500/40 shadow-2xl relative space-y-5 bg-[#0a0f1d]">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-5 h-5 text-cyan-400" />
+                  <h4 className="text-sm font-bold text-gray-100 font-heading">
+                    Set Master Password via Email OTP
+                  </h4>
+                </div>
+                <button
+                  onClick={() => setShowOtpModal(false)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-gray-100 hover:bg-slate-800"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {otpError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+                  {otpError}
+                </div>
+              )}
+
+              {!otpSent ? (
+                <div className="space-y-4 text-xs text-gray-300">
+                  <p className="text-gray-400 leading-relaxed text-[11px]">
+                    We will send a secure 6-digit confirmation OTP to your verified email: <strong className="text-cyan-300 font-mono">{user?.email}</strong>.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="btn-primary w-full justify-center text-xs py-2.5 shadow-lg shadow-cyan-500/20"
+                  >
+                    {otpLoading ? 'Sending Security OTP...' : 'Send 6-Digit OTP to My Email'}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSetPasswordWithOtp} className="space-y-3.5 text-xs">
+                  <div>
+                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                      Enter 6-Digit OTP
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                      placeholder="e.g. 123456"
+                      className="input-field text-center font-mono text-base tracking-widest py-2 bg-slate-950/90 border-slate-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                      New Master Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={newMasterPass}
+                      onChange={(e) => setNewMasterPass(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      minLength={8}
+                      value={confirmMasterPass}
+                      onChange={(e) => setConfirmMasterPass(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex gap-3">
+                    <button
+                      type="submit"
+                      disabled={settingPassLoading}
+                      className="btn-primary flex-1 justify-center text-xs py-2.5 shadow-lg shadow-cyan-500/25"
+                    >
+                      {settingPassLoading ? 'Setting...' : 'Verify OTP & Unlock Vault'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowOtpModal(false)}
+                      className="btn-secondary text-xs py-2.5 px-3"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

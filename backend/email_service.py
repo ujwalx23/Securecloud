@@ -165,3 +165,122 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
             logger.error(f"Failed sending via Resend: {e}")
 
     return False
+
+
+async def send_password_otp_email(to_email: str, code: str, user_name: str = "", purpose: str = "Master Password Setup") -> bool:
+    """
+    Sends a 6-digit OTP to the user for setting or resetting their Master Account / Vault Password.
+    """
+    display_name = user_name or "SecureCloud User"
+    subject = f"SecureCloud: Your {purpose} Security OTP is {code}"
+    
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #050811; color: #f3f4f6; margin: 0; padding: 40px 20px; }}
+        .card {{ max-width: 520px; margin: 0 auto; background: #0c1222; border: 1px solid #1e293b; border-radius: 20px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0, 242, 254, 0.15); }}
+        .logo {{ text-align: center; margin-bottom: 24px; }}
+        .logo h1 {{ font-size: 24px; font-weight: 800; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }}
+        .badge {{ display: inline-block; padding: 4px 12px; border-radius: 9999px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.35); color: #818cf8; font-size: 11px; font-weight: 600; font-family: monospace; text-transform: uppercase; margin-top: 8px; }}
+        h2 {{ font-size: 20px; color: #ffffff; margin-top: 16px; margin-bottom: 8px; text-align: center; }}
+        p {{ color: #94a3b8; font-size: 14px; line-height: 1.6; margin-bottom: 24px; text-align: center; }}
+        .otp-box {{ background: #050811; border: 2px dashed #818cf8; border-radius: 14px; padding: 20px; text-align: center; margin-bottom: 24px; }}
+        .otp-code {{ font-family: monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #818cf8; }}
+        .footer {{ font-size: 12px; color: #64748b; text-align: center; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 16px; }}
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">
+          <h1>SecureCloud</h1>
+          <span class="badge">Cryptographic Key Access</span>
+        </div>
+        <h2>{purpose} Security OTP</h2>
+        <p>Hello {display_name}, you requested a verification code to configure or reset your Master Account Password for the Zero-Knowledge Vault. This 6-digit OTP expires in 15 minutes.</p>
+        <div class="otp-box">
+          <div class="otp-code">{code}</div>
+        </div>
+        <p style="font-size: 12px; color: #f43f5e; font-weight: 600;">Never share this OTP with anyone. SecureCloud personnel will never ask for your password or OTP.</p>
+        <div class="footer">
+          &copy; 2026 SecureCloud Platform &bull; End-to-End Cryptographic Framework
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+    text_content = f"""Hello {display_name},
+
+Your SecureCloud {purpose} security OTP is: {code}
+
+Enter this 6-digit code in the SecureCloud Settings or Vault unlock screen to set or reset your master password. This OTP expires in 15 minutes.
+
+Never share this code with anyone.
+
+--
+SecureCloud Zero-Knowledge Storage
+"""
+
+    smtp_host = get_smtp_host()
+    smtp_user = get_smtp_user()
+    smtp_password = get_smtp_password()
+    smtp_port = get_smtp_port()
+    smtp_from = get_smtp_from_email()
+
+    if smtp_host and smtp_user and smtp_password:
+        try:
+            def _send_smtp():
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"] = smtp_from
+                msg["To"] = to_email
+                msg.attach(MIMEText(text_content, "plain"))
+                msg.attach(MIMEText(html_content, "html"))
+
+                if smtp_port == 465:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10.0) as server:
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+                else:
+                    with smtplib.SMTP(smtp_host, smtp_port, timeout=10.0) as server:
+                        server.starttls()
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+
+            await asyncio.to_thread(_send_smtp)
+            logger.info(f"Password OTP email sent to {to_email} via SMTP ({smtp_host})")
+            return True
+        except Exception as e:
+            logger.error(f"Failed sending OTP via SMTP: {e}")
+
+    resend_api_key = get_resend_api_key()
+    if resend_api_key:
+        try:
+            from_email = get_resend_from_email()
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    "https://api.resend.com/emails",
+                    headers={
+                        "Authorization": f"Bearer {resend_api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "from": from_email,
+                        "to": [to_email],
+                        "subject": subject,
+                        "html": html_content,
+                        "text": text_content
+                    }
+                )
+                if resp.status_code in (200, 201):
+                    logger.info(f"Password OTP email sent to {to_email} via Resend")
+                    return True
+                else:
+                    logger.error(f"Resend API error: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.error(f"Failed sending OTP via Resend: {e}")
+
+    return False

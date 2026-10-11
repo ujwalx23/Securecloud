@@ -42,6 +42,18 @@ BEGIN
     EXCEPTION WHEN duplicate_column THEN NULL; END;
 
     BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_started_at TIMESTAMPTZ;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_expires_at TIMESTAMPTZ;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_expires_at TIMESTAMPTZ;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    BEGIN
         ALTER TABLE users ADD COLUMN IF NOT EXISTS queue_position INTEGER;
     EXCEPTION WHEN duplicate_column THEN NULL; END;
 
