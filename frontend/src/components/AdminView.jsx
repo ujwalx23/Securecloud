@@ -30,7 +30,8 @@ import {
   ArrowUpRight,
   Sliders,
   X,
-  Lock
+  Lock,
+  RotateCcw
 } from 'lucide-react';
 
 export const AdminView = () => {
@@ -410,7 +411,7 @@ export const AdminView = () => {
               </div>
 
               <div className="p-4 rounded-2xl glass-panel border border-slate-800/80 space-y-1">
-                <span className="text-[10px] text-gray-400 font-mono uppercase font-bold">Promo Slots</span>
+                <span className="text-[10px] text-gray-400 font-mono uppercase font-bold">Premium Slots</span>
                 <div className="text-2xl font-black text-indigo-300 font-heading">{overview.active_slots} / 10</div>
                 <span className="text-[10px] text-indigo-400 font-mono">1,000 MB per slot</span>
               </div>
@@ -437,12 +438,12 @@ export const AdminView = () => {
             </div>
           )}
 
-          {/* Promotional Slots Allocation */}
+          {/* Dedicated Premium Slots Allocation */}
           <div className="p-5 sm:p-6 rounded-3xl glass-panel border border-slate-800 space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-bold text-sm text-gray-200 font-heading flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span>10 Promotional Premium Slots (1,000 MB Each)</span>
+                <span>10 Dedicated Premium Slots (1,000 MB Each)</span>
               </h3>
               <span className="badge badge-cyan text-[10px] font-mono">
                 {slotsList.filter(s => s.user_id).length} Occupied • {10 - slotsList.filter(s => s.user_id).length} Vacant
@@ -472,6 +473,17 @@ export const AdminView = () => {
                           <div className="font-bold text-gray-200 truncate">@{slot.username}</div>
                           <div className="text-[10px] text-gray-400 truncate font-mono">{slot.email}</div>
                           <div className="text-[9px] text-cyan-400 font-mono font-bold mt-1">1,000 MB Active</div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteUser({ id: slot.user_id, username: slot.username, email: slot.email });
+                            }}
+                            className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                            title={`Delete account @${slot.username} and vacate Slot #${slot.slot_number}`}
+                          >
+                            <Trash2 className="w-3 h-3 text-rose-400" />
+                            <span>Delete User</span>
+                          </button>
                         </>
                       ) : (
                         <div className="py-2 text-center text-gray-600 italic text-[11px]">Vacant Slot</div>
@@ -603,7 +615,7 @@ export const AdminView = () => {
                             u.plan_type === 'premium' ? 'badge-cyan' : 'bg-slate-800 text-gray-400'
                           }`}>
                             {u.plan_type.toUpperCase()}
-                            {u.is_promotional_premium && ' (FREE)'}
+                            {u.is_promotional_premium && ' (PREMIUM)'}
                           </span>
                           <div className="text-[10px] text-gray-400">
                             {formatBytes(u.storage_quota_bytes)}
@@ -692,10 +704,11 @@ export const AdminView = () => {
 
                           <button
                             onClick={() => handleDeleteUser(u)}
-                            className="p-1 rounded-lg hover:bg-rose-500/20 text-rose-400"
-                            title="Delete User permanently"
+                            className="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-[10px] font-bold flex items-center gap-1 transition-all"
+                            title={`Delete user @${u.username} permanently`}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-3 h-3 text-rose-400" />
+                            <span>Delete</span>
                           </button>
                         </div>
                       </td>

@@ -50,8 +50,8 @@ async def assign_initial_storage_or_queue(session: AsyncSession, user: User) -> 
         notification = Notification(
             user_id=user.id,
             type="promotion",
-            title="Promotional Premium Slot Claimed!",
-            content=f"Congratulations! You secured Promotional Premium Slot #{vacant_slot.slot_number} of 10. You have been allocated 1,000 MB of secure cloud file storage at zero cost."
+            title="Premium Storage Slot Claimed!",
+            content=f"Congratulations! You secured Premium Storage Slot #{vacant_slot.slot_number} of 10. You have been allocated 1,000 MB of secure cloud file storage."
         )
         session.add(notification)
         return "premium", vacant_slot.slot_number
@@ -72,8 +72,8 @@ async def assign_initial_storage_or_queue(session: AsyncSession, user: User) -> 
         notification = Notification(
             user_id=user.id,
             type="promotion",
-            title="Added to Promotional Queue",
-            content=f"All 10 promotional premium slots are currently claimed. You are at Queue Position #{new_pos}. As soon as a slot is vacated, eligible accounts are automatically promoted!"
+            title="Added to Premium Upgrade Queue",
+            content=f"All 10 dedicated premium slots are currently claimed. You are at Queue Position #{new_pos}. As soon as a slot is vacated, eligible accounts are automatically upgraded!"
         )
         session.add(notification)
         return "basic", new_pos
@@ -89,7 +89,7 @@ async def release_slot_and_promote_next(session: AsyncSession, user_id: str) -> 
     )
     slot = slot_res.scalars().first()
     if not slot:
-        return None  # User did not hold a promotional slot
+        return None  # User did not hold a slot
 
     # Vacate the slot
     slot.user_id = None
@@ -119,8 +119,8 @@ async def release_slot_and_promote_next(session: AsyncSession, user_id: str) -> 
         notification = Notification(
             user_id=candidate.id,
             type="promotion",
-            title="You Have Been Promoted to Premium!",
-            content=f"A promotional slot freed up! You have been automatically promoted to Promotional Premium Slot #{slot.slot_number} (1,000 MB allocated storage)."
+            title="You Have Been Upgraded to Premium!",
+            content=f"A premium slot freed up! You have been automatically upgraded to Premium Slot #{slot.slot_number} (1,000 MB allocated storage)."
         )
         session.add(notification)
 

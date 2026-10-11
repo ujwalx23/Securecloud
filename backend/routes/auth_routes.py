@@ -209,9 +209,9 @@ async def verify_email(data: VerifyEmailRequest, request: Request, db: AsyncSess
 
     msg = f"Email verified and registration complete! You have been granted {plan_assigned} plan."
     if plan_assigned == "premium":
-        msg += f" Promotional Premium Slot #{slot_or_pos} (1,000 MB) is active."
+        msg += f" Dedicated Premium Slot #{slot_or_pos} (1,000 MB) is active."
     else:
-        msg += f" You are at queue position #{slot_or_pos} for automatic promotional upgrade."
+        msg += f" You are at queue position #{slot_or_pos} for automatic premium upgrade."
 
     return {
         "message": msg,

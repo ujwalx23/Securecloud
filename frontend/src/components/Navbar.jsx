@@ -259,7 +259,7 @@ export const Navbar = ({
                     <span>Plan:</span>
                   </div>
                   <span className="text-[9px] font-mono font-bold text-purple-300 uppercase px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
-                    {user?.is_promotional_premium ? 'Promo #1' : (user?.plan_type || 'Basic')}
+                    {user?.is_promotional_premium ? 'Premium Tier' : (user?.plan_type || 'Basic')}
                   </span>
                 </button>
 

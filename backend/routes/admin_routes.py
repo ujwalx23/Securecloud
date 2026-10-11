@@ -545,7 +545,7 @@ async def execute_user_action(
         promoted_id = await release_slot_and_promote_next(db, user.id)
         msg = f"User @{user.username} suspended."
         if promoted_id:
-            msg += f" Promotional slot vacated and assigned to next candidate."
+            msg += f" Premium slot vacated and assigned to next candidate."
 
         audit = SecurityAuditLog(
             user_id=admin_user.id,
@@ -575,7 +575,7 @@ async def execute_user_action(
         )
         vacant_slot = slot_res.scalars().first()
         if not vacant_slot:
-            raise HTTPException(status_code=400, detail="All 10 promotional slots are currently occupied.")
+            raise HTTPException(status_code=400, detail="All 10 dedicated premium slots are currently occupied.")
 
         vacant_slot.user_id = user.id
         vacant_slot.allocated_at = utc_now()
@@ -588,8 +588,8 @@ async def execute_user_action(
         notif = Notification(
             user_id=user.id,
             type="promotion",
-            title="Promoted by Administrator",
-            content=f"An administrator has assigned Promotional Premium Slot #{vacant_slot.slot_number} (1,000 MB) to your account."
+            title="Upgraded by Administrator",
+            content=f"An administrator has assigned Premium Slot #{vacant_slot.slot_number} (1,000 MB) to your account."
         )
         db.add(notif)
         await db.commit()
