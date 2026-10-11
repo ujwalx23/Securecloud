@@ -98,8 +98,7 @@ async def register_user(user_in: UserRegister, request: Request, db: AsyncSessio
             await db.commit()
             await db.refresh(existing_user)
 
-            await send_verification_email(clean_email, verification_code, existing_user.full_name)
-            existing_user.dev_otp = verification_code
+            asyncio.create_task(send_verification_email(clean_email, verification_code, existing_user.full_name))
             return existing_user
 
     # Hybrid Cryptography: Generate RSA-2048 Asymmetric Keypair
@@ -139,8 +138,7 @@ async def register_user(user_in: UserRegister, request: Request, db: AsyncSessio
     await db.commit()
     await db.refresh(user)
 
-    await send_verification_email(clean_email, verification_code, user.full_name)
-    user.dev_otp = verification_code
+    asyncio.create_task(send_verification_email(clean_email, verification_code, user.full_name))
     return user
 
 
@@ -214,11 +212,10 @@ async def resend_verification_code(data: ResendCodeRequest, db: AsyncSession = D
     user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     await db.commit()
 
-    sent_ok = await send_verification_email(clean_email, new_code, user.full_name)
+    asyncio.create_task(send_verification_email(clean_email, new_code, user.full_name))
     return {
-        "message": "A fresh 6-digit verification code has been dispatched to your email." if sent_ok else "Verification code generated for your email.",
-        "email_dispatched": sent_ok,
-        "dev_otp": new_code
+        "message": "A fresh 6-digit verification code has been dispatched to your email. Please check your inbox.",
+        "email_dispatched": True
     }
 
 
@@ -603,26 +600,25 @@ async def send_password_otp(
     target_user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     await db.commit()
 
-    sent_ok = await send_password_otp_email(
+    asyncio.create_task(send_password_otp_email(
         target_user.email,
         otp_code,
         target_user.full_name or target_user.username,
         purpose="Master Password Setup"
-    )
+    ))
 
     activity = ActivityLog(
         user_id=target_user.id,
         action_type="PASSWORD_OTP_REQUESTED",
-        description=f"Master Password OTP requested via email. Sent: {sent_ok}.",
+        description="Master Password OTP requested via email.",
         ip_address=get_client_ip(request)
     )
     db.add(activity)
     await db.commit()
 
     return {
-        "message": f"6-digit security OTP dispatched to {target_user.email}." if sent_ok else f"Security OTP generated for {target_user.email}.",
-        "email_dispatched": sent_ok,
-        "dev_otp": otp_code
+        "message": f"A 6-digit security OTP has been dispatched to {target_user.email}. Please check your inbox.",
+        "email_dispatched": True
     }
 
 

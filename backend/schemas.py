@@ -97,7 +97,6 @@ class UserResponse(BaseModel):
     online_status: bool
     is_verified: bool = False
     is_admin: bool = False
-    dev_otp: Optional[str] = None
     created_at: datetime
 
 class VerifyEmailRequest(BaseModel):

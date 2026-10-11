@@ -283,20 +283,12 @@ const MainApp = () => {
       if (isRegister) {
         const regRes = await register(email, username, password, fullName);
         setIsVerifyingEmail(true);
-        if (regRes?.dev_otp) {
-          setVerificationCode(regRes.dev_otp);
-          showToast({
-            type: 'success',
-            title: 'Verification Code Ready',
-            message: `Code: ${regRes.dev_otp} (auto-filled, also dispatched to ${email}).`
-          });
-        } else {
-          showToast({
-            type: 'info',
-            title: 'Verification Code Sent',
-            message: `A 6-digit confirmation code was dispatched to ${email}.`
-          });
-        }
+        setVerificationCode(''); // Clean empty field - user must manually enter OTP from email
+        showToast({
+          type: 'info',
+          title: 'Verification Code Sent',
+          message: `A 6-digit confirmation code was dispatched to ${email}. Check your email inbox.`
+        });
       } else {
         await login(email, password);
         showToast({
@@ -357,21 +349,13 @@ const MainApp = () => {
   const handleResendCode = async () => {
     if (resendCooldown > 0) return;
     try {
-      const res = await resendCode(email);
-      if (res?.dev_otp) {
-        setVerificationCode(res?.dev_otp);
-        showToast({
-          type: 'success',
-          title: 'Code Ready',
-          message: `Code: ${res.dev_otp} (auto-filled, also dispatched to ${email}).`
-        });
-      } else {
-        showToast({
-          type: 'info',
-          title: 'Code Resent',
-          message: `Fresh verification code dispatched to ${email}.`
-        });
-      }
+      await resendCode(email);
+      setVerificationCode(''); // Clean empty field - user enters code from email
+      showToast({
+        type: 'info',
+        title: 'Verification Code Sent',
+        message: `Fresh verification code dispatched to ${email}. Check your email inbox.`
+      });
       setResendCooldown(60);
       const interval = setInterval(() => {
         setResendCooldown((prev) => {

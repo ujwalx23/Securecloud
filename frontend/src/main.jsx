@@ -12,20 +12,31 @@ try {
   document.documentElement.style.colorScheme = initialTheme;
 } catch {}
 
-// Support live deployment (e.g. frontend hosted on Vercel connecting to live backend)
-const defaultBase = import.meta.env.DEV ? '' : 'https://securecloud-i0qq.onrender.com'
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, '')
-if (API_BASE) {
-  const originalFetch = window.fetch
-  window.fetch = (input, init) => {
+// Resilient API routing: Prioritize same-origin Vercel proxy rewrite (zero CORS latency / no preflight failures)
+// with automatic fallback to direct Render backend if edge proxy is unreachable.
+const directBackend = 'https://securecloud-i0qq.onrender.com';
+const originalFetch = window.fetch;
+
+window.fetch = async (input, init) => {
+  try {
+    return await originalFetch(input, init);
+  } catch (err) {
     if (typeof input === 'string' && input.startsWith('/api')) {
-      input = `${API_BASE}${input}`
+      try {
+        return await originalFetch(`${directBackend}${input}`, init);
+      } catch (fallbackErr) {
+        throw err;
+      }
     } else if (input instanceof Request && input.url.startsWith('/api')) {
-      input = new Request(`${API_BASE}${input.url}`, input)
+      try {
+        return await originalFetch(new Request(`${directBackend}${input.url}`, input), init);
+      } catch (fallbackErr) {
+        throw err;
+      }
     }
-    return originalFetch(input, init)
+    throw err;
   }
-}
+};
 
 // Register PWA service worker
 if ('serviceWorker' in navigator && !import.meta.env.DEV) {

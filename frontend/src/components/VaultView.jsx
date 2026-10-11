@@ -150,20 +150,12 @@ export const VaultView = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to send OTP');
       setOtpSent(true);
-      if (data.dev_otp) {
-        setOtpCode(data.dev_otp);
-        showToast({
-          type: 'success',
-          title: 'Security OTP Ready',
-          message: `Code: ${data.dev_otp} auto-filled (dispatched to ${user?.email})`
-        });
-      } else {
-        showToast({
-          type: 'success',
-          title: 'Security OTP Sent',
-          message: `6-digit OTP sent to ${user?.email}`
-        });
-      }
+      setOtpCode(''); // Clean empty field - user must manually enter OTP from email
+      showToast({
+        type: 'info',
+        title: 'Security OTP Sent',
+        message: `A 6-digit confirmation code was sent to ${user?.email}. Check your email inbox.`
+      });
     } catch (err) {
       setOtpError(err.message);
     } finally {
