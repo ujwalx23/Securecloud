@@ -87,7 +87,7 @@ const MainApp = () => {
   const [shareFile, setShareFile] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
 
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '1023719460288-placeholder.apps.googleusercontent.com';
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '593769489522-jkbfd18upg9e4cha237sueeasf94j02k.apps.googleusercontent.com';
 
   const handleGoogleCredential = useCallback(async (response) => {
     if (!response?.credential) return;

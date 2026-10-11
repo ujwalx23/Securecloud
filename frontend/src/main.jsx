@@ -4,7 +4,8 @@ import App from './App.jsx'
 import './index.css'
 
 // Support live deployment (e.g. frontend hosted on Vercel connecting to live backend)
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const defaultBase = import.meta.env.DEV ? '' : 'https://securecloud-i0qq.onrender.com'
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, '')
 if (API_BASE) {
   const originalFetch = window.fetch
   window.fetch = (input, init) => {

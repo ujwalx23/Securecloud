@@ -56,6 +56,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:4173",
         "https://securecloud.vercel.app",
+        "https://securexcloud.vercel.app",
         "*"
     ],
     allow_credentials=True,
