@@ -119,22 +119,16 @@ export const Navbar = ({
           </button>
         )}
 
-        {/* Day / Night Theme Toggle */}
+        {/* Theme Toggle (Icon Only) */}
         <button
           onClick={toggleTheme}
-          title={isDayMode ? "Switch to Night Mode" : "Switch to Day Mode"}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-800/80 bg-slate-900/60 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 transition-all shadow-sm"
+          aria-label="Toggle theme"
+          className="p-2 rounded-xl border border-slate-800/80 bg-slate-900/60 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 transition-all shadow-sm flex items-center justify-center"
         >
           {isDayMode ? (
-            <>
-              <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
-              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 hidden md:inline">Day</span>
-            </>
+            <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
           ) : (
-            <>
-              <Moon className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-semibold text-cyan-400 hidden md:inline">Night</span>
-            </>
+            <Moon className="w-4 h-4 text-cyan-400" />
           )}
         </button>
 

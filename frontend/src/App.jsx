@@ -496,23 +496,17 @@ const MainApp = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#050811] flex items-center justify-center p-4 lg:p-12 relative overflow-hidden text-gray-100">
-        {/* Top-Right Theme Toggle on Landing Screen */}
+        {/* Top-Right Theme Toggle on Landing Screen (Icon Only) */}
         <div className="absolute top-5 right-5 z-30">
           <button
             onClick={toggleTheme}
-            title={isDayMode ? "Switch to Night Mode" : "Switch to Day Mode"}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 hover:bg-slate-800 text-gray-300 transition-all backdrop-blur-md shadow-lg"
+            aria-label="Toggle theme"
+            className="p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/70 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 transition-all backdrop-blur-md shadow-lg flex items-center justify-center"
           >
             {isDayMode ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
-                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Day Mode</span>
-              </>
+              <Sun className="w-5 h-5 text-amber-500 animate-spin-slow" />
             ) : (
-              <>
-                <Moon className="w-4 h-4 text-cyan-400" />
-                <span className="text-xs font-semibold text-cyan-400">Night Mode</span>
-              </>
+              <Moon className="w-5 h-5 text-cyan-400" />
             )}
           </button>
         </div>

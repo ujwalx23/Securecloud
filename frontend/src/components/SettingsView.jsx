@@ -445,54 +445,40 @@ export const SettingsView = ({ storageStats }) => {
           </div>
 
           {/* Appearance & Theme Selection */}
+          {/* Theme Selector (Icon Only) */}
           <div className="pt-4 border-t border-slate-800 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Sun className="w-4 h-4 text-amber-500" />
-                <h4 className="text-xs font-bold font-heading text-gray-100">Appearance & Theme</h4>
-              </div>
-              <span className="badge badge-amber font-mono text-[9px]">
-                {isDayMode ? 'Day Mode Active' : 'Night Mode Active'}
+              <h4 className="text-xs font-bold font-heading text-gray-100">Theme</h4>
+              <span className="badge badge-cyan font-mono text-[9px] flex items-center justify-center p-1.5">
+                {isDayMode ? <Sun className="w-3.5 h-3.5 text-amber-500 animate-spin-slow" /> : <Moon className="w-3.5 h-3.5 text-cyan-400" />}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setTheme('light')}
-                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                aria-label="Light mode"
+                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-center ${
                   isDayMode
-                    ? 'border-amber-500/60 bg-amber-500/10 shadow-sm'
+                    ? 'border-amber-500/60 bg-amber-500/10 text-amber-500 shadow-md shadow-amber-500/10'
                     : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-gray-400'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <Sun className={`w-4 h-4 ${isDayMode ? 'text-amber-500 animate-spin-slow' : 'text-gray-400'}`} />
-                  {isDayMode && <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
-                </div>
-                <div>
-                  <div className="font-bold text-[11px] text-gray-100">Day Mode (Default)</div>
-                  <div className="text-[9px] text-gray-400">Crisp high-contrast light</div>
-                </div>
+                <Sun className={`w-6 h-6 ${isDayMode ? 'text-amber-500 animate-spin-slow' : 'text-gray-400'}`} />
               </button>
 
               <button
                 type="button"
                 onClick={() => setTheme('dark')}
-                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                aria-label="Dark mode"
+                className={`p-3.5 rounded-2xl border transition-all flex items-center justify-center ${
                   !isDayMode
-                    ? 'border-cyan-500/60 bg-cyan-500/10 shadow-sm'
+                    ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-400 shadow-md shadow-cyan-500/10'
                     : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-gray-400'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <Moon className={`w-4 h-4 ${!isDayMode ? 'text-cyan-400' : 'text-gray-400'}`} />
-                  {!isDayMode && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />}
-                </div>
-                <div>
-                  <div className="font-bold text-[11px] text-gray-100">Night Mode</div>
-                  <div className="text-[9px] text-gray-400">Deep cyber darkroom</div>
-                </div>
+                <Moon className={`w-6 h-6 ${!isDayMode ? 'text-cyan-400' : 'text-gray-400'}`} />
               </button>
             </div>
           </div>
