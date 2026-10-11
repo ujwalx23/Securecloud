@@ -13,6 +13,8 @@
 
 **SecureCloud** is an enterprise-grade, zero-trust cloud storage platform and credential vault engineered with hardware-accelerated hybrid cryptography (**RSA-2048 PKI + AES-256-GCM**), real-time audit telemetry, interactive **Three.js 3D visualizations**, and a modern SaaS interface.
 
+> 📖 **Comprehensive Technical Case Study & Architecture Report**: See [docs/TECHNICAL_CASE_STUDY.md](docs/TECHNICAL_CASE_STUDY.md) for full system specifications, database schemas, cryptographic parameters, and 79 API endpoints.
+
 </div>
 
 ---
