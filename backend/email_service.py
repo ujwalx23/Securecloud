@@ -17,11 +17,25 @@ def get_resend_api_key() -> str:
 def get_resend_from_email() -> str:
     return os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>").strip()
 
-SMTP_HOST = os.getenv("SMTP_HOST", "")
-SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER = os.getenv("SMTP_USER", "")
-SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER)
+def get_smtp_host() -> str:
+    return os.getenv("SMTP_HOST", "").strip()
+
+def get_smtp_port() -> int:
+    try:
+        return int(os.getenv("SMTP_PORT", "587").strip())
+    except ValueError:
+        return 587
+
+def get_smtp_user() -> str:
+    return os.getenv("SMTP_USER", "").strip()
+
+def get_smtp_password() -> str:
+    # Automatically strip spaces in case user pasted Google app password like "rbjd gpaf jvzw btve"
+    return os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
+
+def get_smtp_from_email() -> str:
+    user = get_smtp_user()
+    return os.getenv("SMTP_FROM_EMAIL", f"SecureCloud <{user}>").strip()
 
 def generate_verification_code() -> str:
     """Generate a cryptographically secure 6-digit verification OTP."""
@@ -83,13 +97,46 @@ SecureCloud Zero-Knowledge Storage
 
 async def send_verification_email(to_email: str, code: str, user_name: str = "") -> bool:
     """
-    Sends the 6-digit confirmation code via Resend, SMTP, or logs to console as safety fallback.
+    Sends the 6-digit confirmation code via SMTP (Gmail) or Resend API.
     """
     html_content = _build_html_template(code, user_name)
     text_content = _build_text_template(code, user_name)
     subject = f"SecureCloud: Your Verification Code is {code}"
 
-    # 1. Try Resend API (Recommended)
+    # 1. Try Standard SMTP (e.g. Gmail App Password) - Delivers to ANY recipient worldwide
+    smtp_host = get_smtp_host()
+    smtp_user = get_smtp_user()
+    smtp_password = get_smtp_password()
+    smtp_port = get_smtp_port()
+    smtp_from = get_smtp_from_email()
+
+    if smtp_host and smtp_user and smtp_password:
+        try:
+            def _send_smtp():
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"] = smtp_from
+                msg["To"] = to_email
+                msg.attach(MIMEText(text_content, "plain"))
+                msg.attach(MIMEText(html_content, "html"))
+
+                if smtp_port == 465:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10.0) as server:
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+                else:
+                    with smtplib.SMTP(smtp_host, smtp_port, timeout=10.0) as server:
+                        server.starttls()
+                        server.login(smtp_user, smtp_password)
+                        server.send_message(msg)
+
+            await asyncio.to_thread(_send_smtp)
+            logger.info(f"Verification email sent to {to_email} via SMTP ({smtp_host})")
+            return True
+        except Exception as e:
+            logger.error(f"Failed sending via SMTP: {e}")
+
+    # 2. Try Resend API (Fallback or standalone)
     resend_api_key = get_resend_api_key()
     if resend_api_key:
         try:
@@ -116,32 +163,5 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                     logger.error(f"Resend API error: {resp.status_code} - {resp.text}")
         except Exception as e:
             logger.error(f"Failed sending via Resend: {e}")
-
-    # 2. Try Standard SMTP (e.g. Gmail App Password)
-    if SMTP_HOST and SMTP_USER and SMTP_PASSWORD:
-        try:
-            def _send_smtp():
-                msg = MIMEMultipart("alternative")
-                msg["Subject"] = subject
-                msg["From"] = SMTP_FROM_EMAIL
-                msg["To"] = to_email
-                msg.attach(MIMEText(text_content, "plain"))
-                msg.attach(MIMEText(html_content, "html"))
-
-                if SMTP_PORT == 465:
-                    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-                        server.login(SMTP_USER, SMTP_PASSWORD)
-                        server.send_message(msg)
-                else:
-                    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-                        server.starttls()
-                        server.login(SMTP_USER, SMTP_PASSWORD)
-                        server.send_message(msg)
-
-            await asyncio.to_thread(_send_smtp)
-            logger.info(f"Verification email sent to {to_email} via SMTP")
-            return True
-        except Exception as e:
-            logger.error(f"Failed sending via SMTP: {e}")
 
     return False
