@@ -29,8 +29,8 @@ class User(Base):
     storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
 
-    # Personal Text Storage Quota (Notes & Documents) - Default 5 MB for all users
-    text_storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=5242880)
+    # Personal Text Storage Quota (Notes & Documents) - Default 1 MB safe text quota
+    text_storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=1048576)
     text_storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
 
     # Subscription & Allocation Status

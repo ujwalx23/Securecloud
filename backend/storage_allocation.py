@@ -7,7 +7,7 @@ from backend.models import User, StorageAllocationSlot, Notification, FileItem, 
 
 PROMOTIONAL_SLOT_QUOTA_BYTES = 1000 * 1024 * 1024  # 1,000 MB = 1,048,576,000 bytes
 TOTAL_PROMOTIONAL_SLOTS = 10
-BASIC_TEXT_QUOTA_BYTES = 5 * 1024 * 1024  # 5 MB text storage
+BASIC_TEXT_QUOTA_BYTES = 1 * 1024 * 1024  # 1 MB safe text quota (reserves database headroom for chats & logs)
 
 def utc_now():
     return datetime.now(timezone.utc)

@@ -168,7 +168,7 @@ export const SubscriptionsView = () => {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Encrypted Personal Notes & Docs (5 MB Text Space)</span>
+                <span>Encrypted Personal Notes & Markdown Docs</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />

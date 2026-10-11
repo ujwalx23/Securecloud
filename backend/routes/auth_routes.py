@@ -121,7 +121,7 @@ async def register_user(user_in: UserRegister, request: Request, db: AsyncSessio
         verification_expires_at=expires_at,
         plan_type="basic",
         storage_quota_bytes=0,
-        text_storage_quota_bytes=5242880  # 5 MB personal text notes
+        text_storage_quota_bytes=1048576  # 1 MB safe personal text buffer
     )
     db.add(user)
     await db.flush()
@@ -405,7 +405,7 @@ async def google_login(
             is_verified=True,
             plan_type="basic",
             storage_quota_bytes=0,
-            text_storage_quota_bytes=5242880
+            text_storage_quota_bytes=1048576
         )
         db.add(user)
         await db.flush()

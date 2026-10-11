@@ -152,7 +152,7 @@ export const DocumentsView = () => {
   );
 
   const textUsedBytes = user?.text_storage_used_bytes || 0;
-  const textQuotaBytes = user?.text_storage_quota_bytes || 5242880;
+  const textQuotaBytes = user?.text_storage_quota_bytes || 1048576;
   const textPercent = Math.min(100, Math.round((textUsedBytes / textQuotaBytes) * 100));
 
   return (
@@ -166,7 +166,7 @@ export const DocumentsView = () => {
             </div>
             <div>
               <h2 className="text-lg font-bold text-gray-100 font-heading">Personal Documents & Notes</h2>
-              <p className="text-xs text-gray-400">Encrypted personal notes with 5 MB dedicated free text storage.</p>
+              <p className="text-xs text-gray-400">Zero-knowledge personal notes, drafts, and markdown documents.</p>
             </div>
           </div>
         </div>
@@ -176,7 +176,7 @@ export const DocumentsView = () => {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
             <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
             <span className="text-gray-400 font-mono text-[11px]">
-              {(textUsedBytes / 1024).toFixed(1)} KB / {(textQuotaBytes / (1024 * 1024)).toFixed(0)} MB
+              Notes Buffer: {(textUsedBytes / 1024).toFixed(1)} KB used
             </span>
             <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
               <div className="h-full bg-cyan-400" style={{ width: `${Math.max(textPercent, 2)}%` }} />

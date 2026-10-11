@@ -117,8 +117,8 @@ async def run_all_tests():
         assert len(sess_res.json()) >= 1
         print("  [PASS] Active session tracking verified.")
 
-        # TEST 4: Personal Text Notes CRUD & 5 MB Quota
-        print("\n[TEST 4] Testing Personal Text Notes & 5 MB Quota Allocation...")
+        # TEST 4: Personal Text Notes CRUD & Document Quota
+        print("\n[TEST 4] Testing Personal Text Notes & Document Quota Allocation...")
         doc_res = await ac.post("/api/documents", json={
             "title": "Architecture Blueprint",
             "content": "Enterprise Zero-Knowledge cloud platform with hybrid cryptography."

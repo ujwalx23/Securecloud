@@ -71,7 +71,7 @@ async def list_available_plans():
                 "features": [
                     "Full User Registration & Verification",
                     "Unique Username & Profile",
-                    "Personal Text Notes & Documents (5 MB)",
+                    "Personal Encrypted Notes & Documents",
                     "User Search & Communication Requests",
                     "Private 1-on-1 Real-Time Chat",
                     "Promotional 1,000 MB Queue Waitlist",
