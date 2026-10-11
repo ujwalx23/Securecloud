@@ -245,10 +245,15 @@ async def run_all_tests():
         plans = plans_res.json()["plans"]
         custom_plan = next(p for p in plans if p["id"] == "custom")
         assert custom_plan["contact_phone"] == "7977339435"
-        print(f"  [PASS] Custom Plan verified with required contact: {custom_plan['contact_phone']}")
+        # TEST 8: Google Auth Endpoint Validation
+        print("\n[TEST 8] Testing Google OAuth Endpoint Token Verification...")
+        google_bad_token = await ac.post("/api/auth/google", json={"credential": "invalid_fake_jwt_token"})
+        assert google_bad_token.status_code == 401
+        assert "Invalid or expired Google credential" in google_bad_token.json()["detail"]
+        print("  [PASS] Google Auth endpoint securely validates ID tokens and rejects invalid credentials with 401.")
 
     print("\n" + "=" * 60)
-    print("ALL 7 TEST SUITES PASSED FLAWLESSLY! 100% SUCCESS.")
+    print("ALL 8 TEST SUITES PASSED FLAWLESSLY! 100% SUCCESS.")
     print("=" * 60)
 
 if __name__ == "__main__":

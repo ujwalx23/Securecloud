@@ -22,6 +22,9 @@ class UserLogin(BaseModel):
     login: str = Field(..., description="Email or Username")
     password: str
 
+class GoogleLoginRequest(BaseModel):
+    credential: str = Field(..., description="Google ID Token JWT from Google Identity Services")
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

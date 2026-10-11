@@ -7,11 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, or_, delete, desc
 
+import re
+import httpx
+from backend.config import GOOGLE_CLIENT_ID
 from backend.database import get_db
 from backend.models import User, ActivityLog, UserSession, SecurityAuditLog
 from backend.schemas import (
     UserRegister,
     UserLogin,
+    GoogleLoginRequest,
     Token,
     UserResponse,
     VerifyEmailRequest,
@@ -289,6 +293,141 @@ async def login_user(credentials: UserLogin, request: Request, db: AsyncSession 
         user_id=user.id,
         action_type="USER_LOGIN",
         description="Authenticated session established.",
+        ip_address=ip_addr,
+        user_agent=user_agent
+    )
+    db.add(audit)
+    await db.commit()
+    await db.refresh(user)
+
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "full_name": user.full_name,
+        "avatar_url": user.avatar_url,
+        "plan_type": user.plan_type,
+        "is_promotional_premium": user.is_promotional_premium,
+        "storage_quota_bytes": user.storage_quota_bytes,
+        "storage_used_bytes": user.storage_used_bytes,
+        "text_storage_quota_bytes": user.text_storage_quota_bytes,
+        "text_storage_used_bytes": user.text_storage_used_bytes,
+        "queue_position": user.queue_position,
+        "is_admin": user.is_admin,
+        "is_verified": user.is_verified
+    }
+
+    return {"access_token": access_token, "token_type": "bearer", "user": user_dict}
+
+
+@router.post("/google", response_model=Token)
+async def google_login(
+    data: GoogleLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    ip_addr = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "Unknown Browser")
+    token_str = data.credential.strip()
+
+    # 1. Verify token with Google Tokeninfo API
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={token_str}")
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired Google credential."
+                )
+            google_info = resp.json()
+    except httpx.RequestError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach Google OAuth service. Please try again."
+        )
+
+    email = google_info.get("email", "").strip().lower()
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google account has no email address.")
+
+    name = google_info.get("name", "")
+    picture = google_info.get("picture", "")
+
+    # 2. Check if user already exists
+    user_res = await db.execute(select(User).where(User.email == email))
+    user = user_res.scalar_one_or_none()
+
+    if user:
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been suspended.")
+
+        # If user registered before with password but was unverified, Google email is authoritative!
+        if not user.is_verified:
+            user.is_verified = True
+            user.verification_code = None
+            user.verification_expires_at = None
+            await assign_initial_storage_or_queue(db, user)
+
+        if picture and not user.avatar_url:
+            user.avatar_url = picture
+    else:
+        # First-time Google user: Create new account with RSA-2048 keys and unique username
+        base_username = re.sub(r"[^a-zA-Z0-9_]", "", email.split("@")[0].lower())[:20]
+        if len(base_username) < 3:
+            base_username = f"user_{base_username}"
+
+        username_candidate = base_username
+        suffix = 1
+        while True:
+            u_check = await db.execute(select(User).where(User.username == username_candidate))
+            if not u_check.scalar_one_or_none():
+                break
+            username_candidate = f"{base_username}_{suffix}"
+            suffix += 1
+
+        user_id = str(uuid.uuid4())
+        public_pem, private_pem = generate_rsa_keypair()
+        encrypted_priv_key = encrypt_user_private_key(private_pem, user_id)
+
+        user = User(
+            id=user_id,
+            email=email,
+            username=username_candidate,
+            hashed_password=get_password_hash(secrets.token_urlsafe(32)),
+            full_name=name or username_candidate,
+            avatar_url=picture or None,
+            public_key_pem=public_pem,
+            encrypted_private_key_pem=encrypted_priv_key,
+            is_verified=True,
+            plan_type="basic",
+            storage_quota_bytes=0,
+            text_storage_quota_bytes=5242880
+        )
+        db.add(user)
+        await db.flush()
+
+        # Promotional Allocation: Slot 1-10 or Queue
+        await assign_initial_storage_or_queue(db, user)
+
+    user.online_status = True
+    user.last_active_at = datetime.now(timezone.utc)
+
+    # Issue access token & session
+    access_token = create_access_token(data={"sub": user.id, "email": user.email, "username": user.username})
+    await create_user_session(db, user.id, access_token, ip_addr, user_agent)
+
+    activity = ActivityLog(
+        user_id=user.id,
+        action_type="GOOGLE_LOGIN",
+        description="Authenticated securely via Google Identity.",
+        ip_address=ip_addr
+    )
+    db.add(activity)
+
+    audit = SecurityAuditLog(
+        user_id=user.id,
+        action_type="GOOGLE_OAUTH_LOGIN",
+        description="Google OAuth authentication verified by Google tokeninfo.",
         ip_address=ip_addr,
         user_agent=user_agent
     )
