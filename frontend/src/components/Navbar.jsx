@@ -20,6 +20,7 @@ export const Navbar = ({
   onOpenUpload,
   onOpenCommandPalette,
   activeTab,
+  setActiveTab,
   searchQuery,
   setSearchQuery
 }) => {
@@ -75,18 +76,19 @@ export const Navbar = ({
 
       {/* Center: Search / Command Palette Trigger (Responsive, no overlap) */}
       <div className="hidden sm:flex flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-2 md:mx-4 min-w-0 relative">
-        <Search className="w-4 h-4 text-cyan-400/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
+        <Search className="w-4 h-4 text-cyan-400/80 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none shrink-0 z-10" />
         <input
           type="text"
           placeholder="Search files, tags (⌘K)..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onClick={onOpenCommandPalette}
-          className="input-field pl-10 pr-12 py-2 text-xs bg-slate-950/70 border-slate-800 focus:border-cyan-400/80 rounded-xl cursor-pointer truncate placeholder:text-ellipsis"
+          style={{ paddingLeft: '2.5rem', paddingRight: '2.5rem' }}
+          className="input-field py-2 text-xs bg-slate-950/70 border-slate-800 focus:border-cyan-400/80 rounded-xl cursor-pointer truncate placeholder:text-ellipsis"
         />
         <button
           onClick={onOpenCommandPalette}
-          className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-slate-900 border border-slate-800 rounded hover:border-cyan-500/40 shrink-0"
+          className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-slate-900 border border-slate-800 rounded hover:border-cyan-500/40 shrink-0 z-10"
         >
           ⌘K
         </button>
@@ -155,30 +157,52 @@ export const Navbar = ({
 
           {showUserDropdown && (
             <div
-              className="absolute right-0 top-12 w-60 glass-panel bg-slate-900/95 border-slate-700 py-2 z-40 shadow-2xl rounded-2xl animate-fade-in"
+              className="absolute right-0 top-12 w-56 glass-panel bg-slate-900/95 border-slate-700 py-2 z-40 shadow-2xl rounded-2xl animate-fade-in"
               onMouseLeave={() => setShowUserDropdown(false)}
             >
-              <div className="px-3.5 py-2 border-b border-slate-800">
-                <div className="text-xs font-bold text-gray-100">{user?.full_name || 'Administrator'}</div>
-                <div className="text-[11px] text-cyan-400 font-mono font-semibold">@{user?.username || 'user'}</div>
-                <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">{user?.email}</div>
-              </div>
-
-              <div className="py-1">
-                <div className="px-3.5 py-1 text-[10px] font-mono text-purple-300 flex items-center justify-between">
-                  <span>Storage Plan:</span>
-                  <span className="font-bold uppercase text-purple-400">{user?.is_promotional_premium ? 'Promo Slot #1' : user?.plan_type}</span>
+              <div className="px-3.5 py-2.5 border-b border-slate-800 flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm shrink-0">
+                  {user?.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
                 </div>
-                <div className="px-3.5 py-1 text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3" />
-                  <span>RSA-2048 PKI Certified</span>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-gray-100 truncate">{user?.full_name || 'Administrator'}</div>
+                  <div className="text-[10px] text-cyan-400 font-mono">@{user?.username || 'user'}</div>
                 </div>
               </div>
 
-              <div className="pt-1 border-t border-slate-800">
+              <div className="p-1.5 space-y-0.5">
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    if (setActiveTab) setActiveTab('settings');
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"
+                >
+                  <User className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Account & Profile</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    if (setActiveTab) setActiveTab('subscriptions');
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-purple-300 hover:bg-slate-800/60 rounded-xl flex items-center justify-between transition-colors font-medium"
+                >
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Plan:</span>
+                  </div>
+                  <span className="text-[9px] font-mono font-bold text-purple-300 uppercase px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
+                    {user?.is_promotional_premium ? 'Promo #1' : (user?.plan_type || 'Basic')}
+                  </span>
+                </button>
+              </div>
+
+              <div className="pt-1 border-t border-slate-800 px-1.5">
                 <button
                   onClick={logout}
-                  className="w-full px-3.5 py-2 text-left text-xs text-rose-400 hover:bg-rose-500/15 flex items-center gap-2 transition-colors"
+                  className="w-full px-3 py-2 text-left text-xs text-rose-400 hover:bg-rose-500/15 rounded-xl flex items-center gap-2 transition-colors font-medium"
                 >
                   <LogOut className="w-3.5 h-3.5" />
                   <span>Sign Out of Vault</span>

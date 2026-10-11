@@ -496,6 +496,21 @@ async def update_my_profile(
 ):
     if update_data.full_name is not None:
         current_user.full_name = update_data.full_name.strip()
+    if update_data.username is not None:
+        clean_u = update_data.username.strip().lower()
+        if not re.match(r"^[a-zA-Z0-9_]{3,30}$", clean_u):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username must be 3-30 characters using only letters, numbers, and underscores."
+            )
+        if clean_u != current_user.username:
+            check_u = await db.execute(select(User).where(User.username == clean_u))
+            if check_u.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Username '@{clean_u}' is already taken. Please choose another."
+                )
+            current_user.username = clean_u
     if update_data.bio is not None:
         current_user.bio = update_data.bio.strip()
     if update_data.avatar_url is not None:

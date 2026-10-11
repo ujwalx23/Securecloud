@@ -244,7 +244,8 @@ async def run_all_tests():
         assert plans_res.status_code == 200
         plans = plans_res.json()["plans"]
         custom_plan = next(p for p in plans if p["id"] == "custom")
-        assert custom_plan["contact_phone"] == "7977339435"
+        assert custom_plan["contact_email"] == "ujwalsingh164@gmail.com"
+        print("  [PASS] Custom enterprise plan email correctly points to ujwalsingh164@gmail.com.")
         # TEST 8: Google Auth Endpoint Validation
         print("\n[TEST 8] Testing Google OAuth Endpoint Token Verification...")
         google_bad_token = await ac.post("/api/auth/google", json={"credential": "invalid_fake_jwt_token"})

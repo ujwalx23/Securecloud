@@ -7,7 +7,7 @@ import {
   Shield,
   HardDrive,
   Clock,
-  Phone,
+  Mail,
   Flame,
   Zap,
   ArrowRight
@@ -168,7 +168,7 @@ export const SubscriptionsView = () => {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>5 MB Personal Text Notes & Docs</span>
+                <span>Encrypted Personal Notes & Docs (5 MB Text Space)</span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -298,11 +298,11 @@ export const SubscriptionsView = () => {
 
           <div className="pt-6">
             <a
-              href="tel:7977339435"
+              href="mailto:ujwalsingh164@gmail.com?subject=SecureCloud Enterprise Plan Inquiry"
               className="w-full py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-md shadow-purple-600/20"
             >
-              <Phone className="w-3.5 h-3.5" />
-              Contact 7977339435
+              <Mail className="w-3.5 h-3.5" />
+              Contact Enterprise Sales
             </a>
           </div>
         </div>

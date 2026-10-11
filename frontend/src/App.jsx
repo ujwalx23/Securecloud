@@ -715,6 +715,7 @@ const MainApp = () => {
         onOpenUpload={() => setShowUploadModal(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         activeTab={activeTab}
+        setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
       />

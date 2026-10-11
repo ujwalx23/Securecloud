@@ -32,6 +32,7 @@ class Token(BaseModel):
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
+    username: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
     privacy_profile_public: Optional[bool] = None

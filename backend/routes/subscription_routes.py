@@ -55,7 +55,7 @@ async def get_subscription_status(
         text_storage_used_bytes=current_user.text_storage_used_bytes,
         total_slots_claimed=claimed_count,
         total_slots_available=10,
-        custom_plan_contact="7977339435"
+        custom_plan_contact="ujwalsingh164@gmail.com"
     )
 
 
@@ -107,11 +107,11 @@ async def list_available_plans():
                     "Dedicated Encryption Key Management",
                     "Team Collaboration & Organization Spaces",
                     "Custom API & S3 Integrations",
-                    "Priority Direct Phone Support"
+                    "Priority Direct Enterprise Support"
                 ],
                 "badge": "ENTERPRISE",
-                "contact_phone": "7977339435",
-                "button_text": "Contact 7977339435"
+                "contact_email": "ujwalsingh164@gmail.com",
+                "button_text": "Contact Enterprise Support"
             }
         ]
     }
@@ -159,8 +159,8 @@ async def upgrade_subscription(
 
     elif plan == "custom":
         return {
-            "message": "To configure a custom enterprise plan, please call our direct support line at 7977339435.",
-            "contact_phone": "7977339435"
+            "message": "To configure a custom enterprise plan, please email enterprise sales at ujwalsingh164@gmail.com.",
+            "contact_email": "ujwalsingh164@gmail.com"
         }
     else:
         raise HTTPException(status_code=400, detail="Invalid plan name.")
