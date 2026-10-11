@@ -23,6 +23,7 @@ from backend.crypto_utils import (
     calculate_sha256,
     derive_key_from_password
 )
+from backend.storage_allocation import recalculate_user_storage
 
 
 router = APIRouter(prefix="/api/files", tags=["Files"])
@@ -63,6 +64,12 @@ async def upload_file(
 ):
     content = await file.read()
     raw_size = len(content)
+
+    if current_user.storage_quota_bytes <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="File storage requires a Premium plan or promotional slot allocation. You are currently on the Basic plan. Upgrade to Premium or wait for promotional queue promotion to unlock 1,000 MB cloud file storage."
+        )
 
     if current_user.storage_used_bytes + raw_size > current_user.storage_quota_bytes:
         raise HTTPException(
@@ -315,4 +322,28 @@ async def delete_file_permanently(
     )
     db.add(activity)
     await db.delete(file_item)
+    await recalculate_user_storage(db, current_user.id)
     await db.commit()
+
+@router.patch("/{file_id}/rename", response_model=FileResponse)
+async def rename_file(
+    file_id: str,
+    new_name: str = Form(...),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    clean_name = new_name.strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Filename cannot be blank.")
+
+    res = await db.execute(
+        select(FileItem).where(FileItem.id == file_id, FileItem.user_id == current_user.id)
+    )
+    file_item = res.scalar_one_or_none()
+    if not file_item:
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    file_item.original_name = clean_name
+    await db.commit()
+    await db.refresh(file_item)
+    return file_item

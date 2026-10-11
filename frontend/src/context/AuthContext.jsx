@@ -33,17 +33,17 @@ export const AuthProvider = ({ children }) => {
     }
   }, [token]);
 
-  const login = async (email, password) => {
+  const login = async (loginIdentifier, password) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
+      body: JSON.stringify({ login: loginIdentifier, password })
     });
     const data = await res.json();
     if (!res.ok) {
       const error = new Error(data.detail || 'Login failed');
       error.status = res.status;
-      error.isUnverified = res.status === 403 && (data.detail || '').includes('verify');
+      error.isUnverified = res.status === 403 && (data.detail || '').includes('verification');
       throw error;
     }
     localStorage.setItem('securecloud_token', data.access_token);
@@ -51,11 +51,16 @@ export const AuthProvider = ({ children }) => {
     await fetchProfile(data.access_token);
   };
 
-  const register = async (email, password, fullName) => {
+  const register = async (email, username, password, fullName) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name: fullName })
+      body: JSON.stringify({
+        email,
+        username,
+        password,
+        full_name: fullName
+      })
     });
     const data = await res.json();
     if (!res.ok) {

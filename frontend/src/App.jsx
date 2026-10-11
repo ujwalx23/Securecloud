@@ -17,6 +17,11 @@ import { PublicShareView } from './components/PublicShareView';
 import { CommandPalette } from './components/CommandPalette';
 import { FileDetailsDrawer } from './components/FileDetailsDrawer';
 import { CyberCanvas3D } from './components/CyberCanvas3D';
+import { DocumentsView } from './components/DocumentsView';
+import { ChatView } from './components/ChatView';
+import { ContactsView } from './components/ContactsView';
+import { SubscriptionsView } from './components/SubscriptionsView';
+import { AdminView } from './components/AdminView';
 import {
   Shield,
   Lock,
@@ -64,11 +69,13 @@ const MainApp = () => {
   // Auth form states
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [activeConvIdForChat, setActiveConvIdForChat] = useState(null);
 
   // Email verification state
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
@@ -156,15 +163,21 @@ const MainApp = () => {
     e.preventDefault();
     setAuthError(null);
 
-    if (isRegister && password.length < 8) {
-      setAuthError('Password must be at least 8 characters long for secure key derivation.');
-      return;
+    if (isRegister) {
+      if (!username.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
+        setAuthError('Username must be 3-30 alphanumeric characters or underscores.');
+        return;
+      }
+      if (password.length < 8) {
+        setAuthError('Password must be at least 8 characters long for secure key derivation.');
+        return;
+      }
     }
 
     setAuthLoading(true);
     try {
       if (isRegister) {
-        await register(email, password, fullName);
+        await register(email, username, password, fullName);
         setIsVerifyingEmail(true);
         showToast({
           type: 'info',
@@ -496,25 +509,40 @@ const MainApp = () => {
 
             <form onSubmit={handleAuthSubmit} className="space-y-4">
               {isRegister && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Ujwal Singh"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="input-field text-xs py-3"
-                  />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">Unique Username</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. alex_sec"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                      className="input-field text-xs py-3 font-mono"
+                    />
+                    <p className="text-[10px] text-gray-500 font-mono mt-1">3-30 letters, numbers, or underscores</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">Full Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Ujwal Singh"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="input-field text-xs py-3"
+                    />
+                  </div>
+                </>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">Account Email</label>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  {isRegister ? 'Account Email' : 'Email or Username'}
+                </label>
                 <input
-                  type="email"
+                  type={isRegister ? 'email' : 'text'}
                   required
-                  placeholder="your@gmail.com"
+                  placeholder={isRegister ? 'your@gmail.com' : 'your@gmail.com or alex_sec'}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field text-xs py-3"
@@ -653,6 +681,18 @@ const MainApp = () => {
             />
           )}
 
+          {activeTab === 'documents' && <DocumentsView />}
+          {activeTab === 'chat' && <ChatView initialConversationId={activeConvIdForChat} />}
+          {activeTab === 'contacts' && (
+            <ContactsView
+              onStartChat={(convId) => {
+                setActiveConvIdForChat(convId);
+                setActiveTab('chat');
+              }}
+            />
+          )}
+          {activeTab === 'subscriptions' && <SubscriptionsView />}
+          {activeTab === 'admin' && user?.is_admin && <AdminView />}
           {activeTab === 'vault' && <VaultView />}
           {activeTab === 'activity' && <ActivityLog />}
           {activeTab === 'integrity' && <IntegrityCenter storageStats={storageStats} />}

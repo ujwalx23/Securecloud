@@ -1,30 +1,87 @@
+import re
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 
-# User Schemas
+# User Auth & Profile Schemas
 class UserRegister(BaseModel):
     email: EmailStr
+    username: str = Field(..., min_length=3, max_length=30, description="Unique username (3-30 chars, alphanumeric & underscore)")
     password: str = Field(..., min_length=8, description="Password must be at least 8 characters")
     full_name: Optional[str] = None
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str) -> str:
+        clean = v.strip().lower()
+        if not re.match(r"^[a-zA-Z0-9_]{3,30}$", clean):
+            raise ValueError("Username must be 3-30 characters and contain only letters, numbers, and underscores.")
+        return clean
+
 class UserLogin(BaseModel):
-    email: EmailStr
+    login: str = Field(..., description="Email or Username")
     password: str
 
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    user: Dict[str, Any]
+
+class UserProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    privacy_profile_public: Optional[bool] = None
+    privacy_allow_messages_from: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8)
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    token: str
+    new_password: str = Field(..., min_length=8)
+
+class UserPublicProfile(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    username: str
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
+    plan_type: str
+    is_promotional_premium: bool
+    created_at: datetime
+    online_status: bool = False
+    connection_status: Optional[str] = None  # "none", "pending_sent", "pending_received", "connected", "blocked"
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
     email: str
+    username: str
     full_name: Optional[str] = None
+    bio: Optional[str] = None
+    avatar_url: Optional[str] = None
     storage_quota_bytes: int
     storage_used_bytes: int
+    text_storage_quota_bytes: int
+    text_storage_used_bytes: int
+    plan_type: str
+    is_promotional_premium: bool
+    queue_position: Optional[int] = None
+    queue_joined_at: Optional[datetime] = None
+    privacy_profile_public: bool
+    privacy_allow_messages_from: str
+    online_status: bool
     is_verified: bool = False
+    is_admin: bool = False
     created_at: datetime
 
 class VerifyEmailRequest(BaseModel):
@@ -34,7 +91,165 @@ class VerifyEmailRequest(BaseModel):
 class ResendCodeRequest(BaseModel):
     email: EmailStr
 
-# Folder Schemas
+# Session Management Schemas
+class SessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime
+    expires_at: datetime
+    is_current: bool = False
+
+# Text Documents Schemas
+class TextDocumentCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=255)
+    content: str = ""
+    is_pinned: bool = False
+
+class TextDocumentUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=255)
+    content: Optional[str] = None
+    is_pinned: Optional[bool] = None
+    is_favorite: Optional[bool] = None
+
+class TextDocumentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    user_id: str
+    title: str
+    content: str
+    size_bytes: int
+    is_pinned: bool
+    is_favorite: bool
+    created_at: datetime
+    updated_at: datetime
+
+# Communication Requests Schemas
+class CommunicationRequestCreate(BaseModel):
+    receiver_username: str
+    note: Optional[str] = Field(None, max_length=255)
+
+class CommunicationRequestAction(BaseModel):
+    action: str = Field(..., description="'accept', 'reject', or 'block'")
+
+class CommunicationRequestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    sender_id: str
+    receiver_id: str
+    status: str
+    note: Optional[str] = None
+    created_at: datetime
+    sender_username: Optional[str] = None
+    sender_full_name: Optional[str] = None
+    receiver_username: Optional[str] = None
+    receiver_full_name: Optional[str] = None
+
+# User Connections Schemas
+class UserConnectionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    connected_user_id: str
+    connected_username: str
+    connected_full_name: Optional[str] = None
+    connected_avatar_url: Optional[str] = None
+    connected_online_status: bool = False
+    is_blocked: bool = False
+    created_at: datetime
+
+# Real-Time Chat Schemas
+class ConversationCreate(BaseModel):
+    recipient_id: str
+    title: Optional[str] = None
+
+class MessageSend(BaseModel):
+    conversation_id: str
+    content: str = Field(..., min_length=1, max_length=5000)
+    attachment_file_id: Optional[str] = None
+
+class MessageEdit(BaseModel):
+    content: str = Field(..., min_length=1, max_length=5000)
+
+class ChatMessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    conversation_id: str
+    sender_id: str
+    sender_username: Optional[str] = None
+    sender_avatar_url: Optional[str] = None
+    content: str
+    is_edited: bool
+    edited_at: Optional[datetime] = None
+    is_deleted: bool
+    attachment_file_id: Optional[str] = None
+    attachment_info: Optional[Dict[str, Any]] = None
+    created_at: datetime
+
+class ConversationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    title: Optional[str] = None
+    is_group: bool
+    updated_at: datetime
+    participants: List[Dict[str, Any]]
+    last_message: Optional[Dict[str, Any]] = None
+    unread_count: int = 0
+
+# Notifications Schemas
+class NotificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    type: str
+    title: str
+    content: str
+    is_read: bool
+    link: Optional[str] = None
+    created_at: datetime
+
+# Subscriptions & Allocations Schemas
+class SubscriptionStatusResponse(BaseModel):
+    current_plan: str
+    is_promotional_premium: bool
+    promotional_slot_number: Optional[int] = None
+    queue_position: Optional[int] = None
+    storage_quota_bytes: int
+    storage_used_bytes: int
+    text_storage_quota_bytes: int
+    text_storage_used_bytes: int
+    total_slots_claimed: int
+    total_slots_available: int
+    custom_plan_contact: str = "7977339435"
+
+class UpgradePlanRequest(BaseModel):
+    plan_name: str = Field(..., description="'premium' or 'custom'")
+    payment_id: Optional[str] = None
+    order_id: Optional[str] = None
+
+# Admin Schemas
+class AdminOverviewResponse(BaseModel):
+    total_users: int
+    verified_users: int
+    basic_users: int
+    premium_users: int
+    custom_users: int
+    active_slots: int
+    queue_length: int
+    total_storage_allocated_bytes: int
+    total_storage_used_bytes: int
+    recent_audit_logs: List[Dict[str, Any]]
+
+class AdminUserAction(BaseModel):
+    action: str = Field(..., description="'suspend', 'activate', 'promote', 'demote'")
+
+# Preserved Folder Schemas
 class FolderCreate(BaseModel):
     name: str
     parent_id: Optional[str] = None
@@ -51,7 +266,7 @@ class FolderResponse(BaseModel):
     is_trashed: bool
     created_at: datetime
 
-# File Schemas
+# Preserved File Schemas
 class FileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -79,7 +294,7 @@ class FileVersionResponse(BaseModel):
     checksum_sha256: str
     created_at: datetime
 
-# Share Link Schemas
+# Preserved Share Link Schemas
 class ShareLinkCreate(BaseModel):
     file_id: Optional[str] = None
     folder_id: Optional[str] = None
@@ -100,7 +315,7 @@ class ShareLinkResponse(BaseModel):
     access_count: int
     created_at: datetime
 
-# User-to-User Share Schemas
+# Preserved User-to-User Share Schemas
 class UserShareCreate(BaseModel):
     file_id: str
     recipient_email: EmailStr
@@ -117,11 +332,11 @@ class UserShareResponse(BaseModel):
     created_at: datetime
     file_info: Optional[Dict[str, Any]] = None
 
-# Vault Secret Schemas
+# Preserved Vault Secret Schemas
 class VaultSecretCreate(BaseModel):
     title: str
-    secret_type: str = "password"  # password, note, key
-    payload: str  # Content to be encrypted
+    secret_type: str = "password"
+    payload: str
 
 class VaultSecretResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -133,7 +348,7 @@ class VaultSecretResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-# Activity Log Schema
+# Preserved Activity Log Schema
 class ActivityLogResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -143,7 +358,7 @@ class ActivityLogResponse(BaseModel):
     ip_address: str
     timestamp: datetime
 
-# Storage Stats Schema
+# Preserved Storage Stats Schema
 class StorageStatsResponse(BaseModel):
     total_quota_bytes: int
     used_bytes: int

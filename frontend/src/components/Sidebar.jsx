@@ -1,4 +1,4 @@
-import React from 'react';
+import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard,
   Folder,
@@ -15,7 +15,12 @@ import {
   HardDrive,
   ChevronLeft,
   ChevronRight,
-  Server
+  Server,
+  FileText,
+  MessageSquare,
+  Users,
+  Sparkles,
+  ShieldAlert
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -25,16 +30,18 @@ export const Sidebar = ({
   isCollapsed,
   setIsCollapsed
 }) => {
+  const { user } = useAuth();
+
   const navSections = [
     {
       title: 'WORKSPACE',
       items: [
         { id: 'overview', label: 'Overview', icon: LayoutDashboard },
         { id: 'files', label: 'My Cloud', icon: Folder, badge: storageStats?.file_count || null },
-        { id: 'recent', label: 'Recent', icon: Clock },
-        { id: 'favorites', label: 'Starred', icon: Star },
-        { id: 'shared', label: 'Shared With Me', icon: Share2 },
-        { id: 'shared_links', label: 'Shared Links', icon: LinkIcon },
+        { id: 'documents', label: 'Notes & Docs', icon: FileText },
+        { id: 'chat', label: 'Private Chat', icon: MessageSquare },
+        { id: 'contacts', label: 'Contacts', icon: Users },
+        { id: 'subscriptions', label: 'Plans & Quotas', icon: Sparkles, badge: user?.plan_type?.toUpperCase() },
       ]
     },
     {
@@ -46,14 +53,9 @@ export const Sidebar = ({
       ]
     },
     {
-      title: 'ANALYTICS',
-      items: [
-        { id: 'stats', label: 'Storage Analytics', icon: PieChart },
-      ]
-    },
-    {
       title: 'SYSTEM',
       items: [
+        ...(user?.is_admin ? [{ id: 'admin', label: 'Admin Console', icon: ShieldAlert, isSpecial: true }] : []),
         { id: 'trash', label: 'Encrypted Trash', icon: Trash2 },
         { id: 'settings', label: 'Settings', icon: Settings },
       ]
@@ -166,24 +168,36 @@ export const Sidebar = ({
             <div className="flex items-center justify-between text-xs font-bold text-gray-200">
               <div className="flex items-center gap-1.5">
                 <HardDrive className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Storage</span>
+                <span>Cloud Storage</span>
               </div>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20">
-                {percentage}%
+              <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                user?.plan_type === 'premium'
+                  ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20'
+                  : 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+              }`}>
+                {user?.plan_type?.toUpperCase() || 'BASIC'}
               </span>
             </div>
 
-            <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(percentage, 2)}%` }}
-              />
-            </div>
+            {user?.queue_position ? (
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 font-mono">
+                Queue Waitlist: Position #{user.queue_position}
+              </div>
+            ) : (
+              <>
+                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden p-0.5 border border-slate-800">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-purple-500 rounded-full transition-all duration-500"
+                    style={{ width: `${Math.max(percentage, 2)}%` }}
+                  />
+                </div>
 
-            <div className="flex justify-between text-[10px] text-gray-400 font-mono">
-              <span>{formatBytes(usedBytes)} used</span>
-              <span>{formatBytes(totalBytes)}</span>
-            </div>
+                <div className="flex justify-between text-[10px] text-gray-400 font-mono">
+                  <span>{formatBytes(usedBytes)} used</span>
+                  <span>{formatBytes(totalBytes)}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       ) : (
