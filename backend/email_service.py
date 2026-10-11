@@ -67,9 +67,10 @@ def _build_html_template(code: str, name: str = "") -> str:
     </html>
     """
 
-async def send_verification_email(to_email: str, code: str, user_name: str = "") -> bool:
+async def send_verification_email(to_email: str, code: str, user_name: str = "") -> dict:
     """
     Sends the 6-digit confirmation code via Resend, SMTP, or logs to console as safety fallback.
+    Returns a dict with {"delivered": bool, "notice": str, "code": str}.
     """
     html_content = _build_html_template(code, user_name)
 
@@ -94,7 +95,14 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                 )
                 if resp.status_code in (200, 201):
                     logger.info(f"Verification email sent to {to_email} via Resend")
-                    return True
+                    return {"delivered": True, "notice": "Verification code dispatched to your email inbox.", "code": code}
+                elif resp.status_code == 403 and "only send testing emails" in resp.text:
+                    logger.warning(f"Resend testing domain restriction for {to_email}")
+                    return {
+                        "delivered": False,
+                        "notice": f"Resend testing sandbox only delivers to ujwalsingh164@gmail.com. Verification code: {code}",
+                        "code": code
+                    }
                 else:
                     logger.error(f"Resend API error: {resp.status_code} - {resp.text}")
         except Exception as e:
@@ -122,7 +130,7 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
 
             await asyncio.to_thread(_send_smtp)
             logger.info(f"Verification email sent to {to_email} via SMTP")
-            return True
+            return {"delivered": True, "notice": "Verification code dispatched via SMTP.", "code": code}
         except Exception as e:
             logger.error(f"Failed sending via SMTP: {e}")
 
@@ -136,4 +144,4 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
         f"=======================================================\n"
     )
     print(f"\n>> [EMAIL VERIFICATION CODE for {to_email}]: {code}\n")
-    return True
+    return {"delivered": False, "notice": f"Verification code: {code}", "code": code}

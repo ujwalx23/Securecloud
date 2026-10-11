@@ -74,6 +74,7 @@ const MainApp = () => {
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [sandboxNotice, setSandboxNotice] = useState(null);
 
   // Modals state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -164,8 +165,13 @@ const MainApp = () => {
     setAuthLoading(true);
     try {
       if (isRegister) {
-        await register(email, password, fullName);
+        const regRes = await register(email, password, fullName);
         setIsVerifyingEmail(true);
+        if (regRes?.sandbox_code) {
+          setSandboxNotice(`Resend test sandbox only delivers to ujwalsingh164@gmail.com. Verification code: ${regRes.sandbox_code}`);
+        } else {
+          setSandboxNotice(null);
+        }
         showToast({
           type: 'info',
           title: 'Verification Code Sent',
@@ -182,6 +188,12 @@ const MainApp = () => {
     } catch (err) {
       if (err.isUnverified) {
         setIsVerifyingEmail(true);
+        const match = err.message && err.message.match(/Code:\s*([0-9]{6})/);
+        if (match) {
+          setSandboxNotice(`Resend test sandbox only delivers to ujwalsingh164@gmail.com. Verification code: ${match[1]}`);
+        } else {
+          setSandboxNotice(null);
+        }
       }
       setAuthError(err.message);
       showToast({
@@ -231,11 +243,14 @@ const MainApp = () => {
   const handleResendCode = async () => {
     if (resendCooldown > 0) return;
     try {
-      await resendCode(email);
+      const res = await resendCode(email);
+      if (res?.sandbox_code) {
+        setSandboxNotice(`Resend test sandbox only delivers to ujwalsingh164@gmail.com. Verification code: ${res.sandbox_code}`);
+      }
       showToast({
         type: 'info',
         title: 'Code Resent',
-        message: `Fresh verification code dispatched to ${email}.`
+        message: res?.message || `Fresh verification code dispatched to ${email}.`
       });
       setResendCooldown(60);
       const interval = setInterval(() => {
@@ -439,6 +454,26 @@ const MainApp = () => {
                     />
                   </div>
 
+                  {sandboxNotice && (
+                    <div className="p-3.5 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-200 text-xs flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-[11px] leading-relaxed">{sandboxNotice}</span>
+                        {sandboxNotice.match(/[0-9]{6}/) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const c = sandboxNotice.match(/[0-9]{6}/)[0];
+                              setVerificationCode(c);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-500/30 hover:bg-amber-500/50 text-amber-100 text-[11px] font-mono font-bold shrink-0 ml-2 transition-colors"
+                          >
+                            Fill Code
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {authError && (
                     <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
                       <span>{authError}</span>
@@ -498,7 +533,7 @@ const MainApp = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. John Doe"
+                    placeholder="e.g. Ujwal Singh"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="input-field text-xs py-3"
@@ -511,7 +546,7 @@ const MainApp = () => {
                 <input
                   type="email"
                   required
-                  placeholder="you@domain.com"
+                  placeholder="your@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field text-xs py-3"
