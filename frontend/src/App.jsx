@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { OverviewDashboard } from './components/OverviewDashboard';
@@ -41,10 +42,13 @@ import {
   RefreshCw,
   Smartphone,
   Download,
-  FileText
+  FileText,
+  Sun,
+  Moon
 } from 'lucide-react';
 
 const MainApp = () => {
+  const { theme, toggleTheme, isDayMode } = useTheme();
   const { user, token, loading, login, register, loginWithGoogle, verifyEmail, resendCode } = useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
@@ -492,6 +496,27 @@ const MainApp = () => {
   if (!user) {
     return (
       <div className="min-h-screen bg-[#050811] flex items-center justify-center p-4 lg:p-12 relative overflow-hidden text-gray-100">
+        {/* Top-Right Theme Toggle on Landing Screen */}
+        <div className="absolute top-5 right-5 z-30">
+          <button
+            onClick={toggleTheme}
+            title={isDayMode ? "Switch to Night Mode" : "Switch to Day Mode"}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-slate-800/80 bg-slate-900/70 hover:bg-slate-800 text-gray-300 transition-all backdrop-blur-md shadow-lg"
+          >
+            {isDayMode ? (
+              <>
+                <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
+                <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Day Mode</span>
+              </>
+            ) : (
+              <>
+                <Moon className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-semibold text-cyan-400">Night Mode</span>
+              </>
+            )}
+          </button>
+        </div>
+
         {/* Background Ambient Glow Lights */}
         <div className="absolute top-1/4 left-1/4 w-[650px] h-[650px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 w-[550px] h-[550px] bg-indigo-600/12 rounded-full blur-[150px] pointer-events-none" />
@@ -1022,10 +1047,12 @@ const MainApp = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <MainApp />
-      </ToastProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <ToastProvider>
+          <MainApp />
+        </ToastProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

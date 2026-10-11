@@ -23,14 +23,18 @@ import {
   Eye,
   EyeOff,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useTheme } from '../context/ThemeContext';
 
 export const SettingsView = ({ storageStats }) => {
   const { user, token, refreshProfile } = useAuth();
   const { showToast } = useToast();
+  const { theme, setTheme, isDayMode } = useTheme();
 
   // Profile Editor state
   const [isEditing, setIsEditing] = useState(false);
@@ -437,6 +441,59 @@ export const SettingsView = ({ storageStats }) => {
             <div className="flex items-center justify-between">
               <span className="text-gray-400 font-mono">Real-Time Messaging:</span>
               <span className="badge badge-emerald font-mono text-[10px]">WebSocket w/ Asyncpg</span>
+            </div>
+          </div>
+
+          {/* Appearance & Theme Selection */}
+          <div className="pt-4 border-t border-slate-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sun className="w-4 h-4 text-amber-500" />
+                <h4 className="text-xs font-bold font-heading text-gray-100">Appearance & Theme</h4>
+              </div>
+              <span className="badge badge-amber font-mono text-[9px]">
+                {isDayMode ? 'Day Mode Active' : 'Night Mode Active'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                  isDayMode
+                    ? 'border-amber-500/60 bg-amber-500/10 shadow-sm'
+                    : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-gray-400'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Sun className={`w-4 h-4 ${isDayMode ? 'text-amber-500 animate-spin-slow' : 'text-gray-400'}`} />
+                  {isDayMode && <CheckCircle2 className="w-3.5 h-3.5 text-amber-500" />}
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] text-gray-100">Day Mode (Default)</div>
+                  <div className="text-[9px] text-gray-400">Crisp high-contrast light</div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 ${
+                  !isDayMode
+                    ? 'border-cyan-500/60 bg-cyan-500/10 shadow-sm'
+                    : 'border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-gray-400'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <Moon className={`w-4 h-4 ${!isDayMode ? 'text-cyan-400' : 'text-gray-400'}`} />
+                  {!isDayMode && <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />}
+                </div>
+                <div>
+                  <div className="font-bold text-[11px] text-gray-100">Night Mode</div>
+                  <div className="text-[9px] text-gray-400">Deep cyber darkroom</div>
+                </div>
+              </button>
             </div>
           </div>
         </div>

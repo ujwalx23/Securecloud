@@ -3,6 +3,15 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
+// Initialize Day Mode (default) or saved theme early to prevent flash
+try {
+  const initialTheme = localStorage.getItem('securecloud_theme') || 'light';
+  document.documentElement.classList.toggle('dark', initialTheme === 'dark');
+  document.documentElement.classList.toggle('light', initialTheme === 'light');
+  document.documentElement.setAttribute('data-theme', initialTheme);
+  document.documentElement.style.colorScheme = initialTheme;
+} catch {}
+
 // Support live deployment (e.g. frontend hosted on Vercel connecting to live backend)
 const defaultBase = import.meta.env.DEV ? '' : 'https://securecloud-i0qq.onrender.com'
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || defaultBase).replace(/\/$/, '')

@@ -16,9 +16,12 @@ import {
   Download,
   Smartphone,
   Mail,
-  FileText
+  FileText,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 export const Navbar = ({
   onOpenUpload,
@@ -31,6 +34,7 @@ export const Navbar = ({
   onTriggerInstall
 }) => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme, isDayMode } = useTheme();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -114,6 +118,25 @@ export const Navbar = ({
             <span className="hidden xs:inline">Install App</span>
           </button>
         )}
+
+        {/* Day / Night Theme Toggle */}
+        <button
+          onClick={toggleTheme}
+          title={isDayMode ? "Switch to Night Mode" : "Switch to Day Mode"}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-800/80 bg-slate-900/60 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 transition-all shadow-sm"
+        >
+          {isDayMode ? (
+            <>
+              <Sun className="w-4 h-4 text-amber-500 animate-spin-slow" />
+              <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 hidden md:inline">Day</span>
+            </>
+          ) : (
+            <>
+              <Moon className="w-4 h-4 text-cyan-400" />
+              <span className="text-xs font-semibold text-cyan-400 hidden md:inline">Night</span>
+            </>
+          )}
+        </button>
 
         {/* Upload Button */}
         <button
