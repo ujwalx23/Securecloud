@@ -361,6 +361,10 @@ async def google_login(
         if not user.is_active:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="This account has been suspended.")
 
+        if not user.username:
+            base_u = re.sub(r"[^a-zA-Z0-9_]", "", email.split("@")[0].lower())[:20]
+            user.username = base_u if len(base_u) >= 3 else f"user_{base_u}"
+
         # If user registered before with password but was unverified, Google email is authoritative!
         if not user.is_verified:
             user.is_verified = True
