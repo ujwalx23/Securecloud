@@ -26,8 +26,6 @@ class UserResponse(BaseModel):
     storage_used_bytes: int
     is_verified: bool = False
     created_at: datetime
-    sandbox_code: Optional[str] = None
-    notice: Optional[str] = None
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr

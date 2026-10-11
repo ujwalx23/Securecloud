@@ -70,9 +70,7 @@ async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db
     await db.refresh(user)
 
     # Send verification email asynchronously
-    email_result = await send_verification_email(clean_email, verification_code, user.full_name)
-    user.sandbox_code = verification_code if not email_result.get("delivered") else None
-    user.notice = email_result.get("notice")
+    await send_verification_email(clean_email, verification_code, user.full_name)
 
     return user
 
@@ -134,16 +132,8 @@ async def resend_verification_code(data: ResendCodeRequest, db: AsyncSession = D
     user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
     await db.commit()
 
-    email_result = await send_verification_email(clean_email, new_code, user.full_name)
-    if email_result.get("delivered"):
-        msg = "A fresh 6-digit verification code has been dispatched to your email."
-    else:
-        msg = f"A fresh code has been generated. (Resend sandbox only delivers to ujwalsingh164@gmail.com. Code: {new_code})"
-
-    return {
-        "message": msg,
-        "sandbox_code": new_code if not email_result.get("delivered") else None
-    }
+    await send_verification_email(clean_email, new_code, user.full_name)
+    return {"message": "A fresh 6-digit verification code has been dispatched to your email."}
 
 @router.post("/login", response_model=Token)
 async def login_user(credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
@@ -174,17 +164,12 @@ async def login_user(credentials: UserLogin, request: Request, db: AsyncSession 
             user.verification_expires_at = now + timedelta(minutes=15)
             await db.commit()
 
-        # Send fresh verification email to the user!
-        email_result = await send_verification_email(clean_email, user.verification_code, user.full_name)
-
-        if email_result.get("delivered"):
-            msg = "Email verification required. A fresh 6-digit confirmation code has been dispatched to your email."
-        else:
-            msg = f"Email verification required. (Resend sandbox only delivers to ujwalsingh164@gmail.com. Code: {user.verification_code})"
+        # Send fresh verification email to the user
+        await send_verification_email(clean_email, user.verification_code, user.full_name)
 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=msg
+            detail="Email verification required. Please check your email for your 6-digit verification code."
         )
 
     # 3. Clear failed attempts on success
