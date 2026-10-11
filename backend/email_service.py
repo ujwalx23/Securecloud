@@ -7,11 +7,15 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
 import httpx
+import backend.config  # Ensures .env is loaded
 
 logger = logging.getLogger("securecloud.email")
 
-RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
-RESEND_FROM_EMAIL = os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>")
+def get_resend_api_key() -> str:
+    return os.getenv("RESEND_API_KEY", "").strip()
+
+def get_resend_from_email() -> str:
+    return os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>").strip()
 
 SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
@@ -70,17 +74,19 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
     html_content = _build_html_template(code, user_name)
 
     # 1. Try Resend API (Recommended)
-    if RESEND_API_KEY:
+    resend_api_key = get_resend_api_key()
+    if resend_api_key:
         try:
+            from_email = get_resend_from_email()
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(
                     "https://api.resend.com/emails",
                     headers={
-                        "Authorization": f"Bearer {RESEND_API_KEY}",
+                        "Authorization": f"Bearer {resend_api_key}",
                         "Content-Type": "application/json"
                     },
                     json={
-                        "from": RESEND_FROM_EMAIL,
+                        "from": from_email,
                         "to": [to_email],
                         "subject": f"Your SecureCloud Verification Code: {code}",
                         "html": html_content
