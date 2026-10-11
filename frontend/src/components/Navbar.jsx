@@ -52,48 +52,48 @@ export const Navbar = ({
   };
 
   return (
-    <header className="glass-panel sticky top-3 z-30 px-5 py-3 mb-5 flex items-center justify-between transition-all duration-300 border-slate-800/80">
+    <header className="glass-panel sticky top-3 z-30 px-4 sm:px-5 py-3 mb-5 flex items-center justify-between gap-3 transition-all duration-300 border-slate-800/80">
       {/* Left: Breadcrumbs / Title */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-cyan-500/20 shrink-0">
             <Shield className="w-5 h-5" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold font-mono text-gray-400">SecureCloud</span>
-              <span className="text-gray-600">/</span>
-              <h2 className="text-xs font-bold font-heading text-gray-100">{getBreadcrumbTitle()}</h2>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="text-xs font-bold font-mono text-gray-400 hidden xs:inline">SecureCloud</span>
+              <span className="text-gray-600 hidden xs:inline">/</span>
+              <h2 className="text-xs font-bold font-heading text-gray-100 truncate">{getBreadcrumbTitle()}</h2>
             </div>
-            <div className="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              AES-256-GCM End-to-End Encrypted
+            <div className="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="truncate">AES-256-GCM End-to-End Encrypted</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Center: Search / Command Palette Trigger */}
-      <div className="flex-1 max-w-md mx-6 relative">
-        <Search className="w-4 h-4 text-cyan-400/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+      {/* Center: Search / Command Palette Trigger (Responsive, no overlap) */}
+      <div className="hidden sm:flex flex-1 max-w-xs md:max-w-sm lg:max-w-md mx-2 md:mx-4 min-w-0 relative">
+        <Search className="w-4 h-4 text-cyan-400/70 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none shrink-0" />
         <input
           type="text"
-          placeholder="Search files, tags, or press ⌘K for command center..."
+          placeholder="Search files, tags (⌘K)..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onClick={onOpenCommandPalette}
-          className="input-field pl-10 pr-12 py-2 text-xs bg-slate-950/70 border-slate-800 focus:border-cyan-400/80 rounded-xl cursor-pointer"
+          className="input-field pl-10 pr-12 py-2 text-xs bg-slate-950/70 border-slate-800 focus:border-cyan-400/80 rounded-xl cursor-pointer truncate placeholder:text-ellipsis"
         />
         <button
           onClick={onOpenCommandPalette}
-          className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-slate-900 border border-slate-800 rounded hover:border-cyan-500/40"
+          className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-mono text-cyan-400/80 bg-slate-900 border border-slate-800 rounded hover:border-cyan-500/40 shrink-0"
         >
           ⌘K
         </button>
       </div>
 
       {/* Right: Actions, Notifications & Profile */}
-      <div className="flex items-center gap-3.5">
+      <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0 ml-auto">
         {/* Upload Button */}
         <button
           onClick={onOpenUpload}
@@ -155,18 +155,23 @@ export const Navbar = ({
 
           {showUserDropdown && (
             <div
-              className="absolute right-0 top-12 w-56 glass-panel bg-slate-900/95 border-slate-700 py-2 z-40 shadow-2xl rounded-2xl animate-fade-in"
+              className="absolute right-0 top-12 w-60 glass-panel bg-slate-900/95 border-slate-700 py-2 z-40 shadow-2xl rounded-2xl animate-fade-in"
               onMouseLeave={() => setShowUserDropdown(false)}
             >
               <div className="px-3.5 py-2 border-b border-slate-800">
                 <div className="text-xs font-bold text-gray-100">{user?.full_name || 'Administrator'}</div>
-                <div className="text-[10px] text-cyan-400/80 font-mono truncate">{user?.email}</div>
+                <div className="text-[11px] text-cyan-400 font-mono font-semibold">@{user?.username || 'user'}</div>
+                <div className="text-[10px] text-gray-400 font-mono truncate mt-0.5">{user?.email}</div>
               </div>
 
               <div className="py-1">
-                <div className="px-3.5 py-1.5 text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
+                <div className="px-3.5 py-1 text-[10px] font-mono text-purple-300 flex items-center justify-between">
+                  <span>Storage Plan:</span>
+                  <span className="font-bold uppercase text-purple-400">{user?.is_promotional_premium ? 'Promo Slot #1' : user?.plan_type}</span>
+                </div>
+                <div className="px-3.5 py-1 text-[10px] font-mono text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3 h-3" />
-                  <span>RSA-2048 Vault Certified</span>
+                  <span>RSA-2048 PKI Certified</span>
                 </div>
               </div>
 

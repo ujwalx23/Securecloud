@@ -43,7 +43,15 @@ export const SettingsView = ({ storageStats }) => {
             <h3 className="text-sm font-bold font-heading text-gray-100">User Identity & Profile</h3>
           </div>
 
-          <div className="space-y-3 text-xs">
+          <div className="space-y-3.5 text-xs">
+            <div>
+              <label className="text-gray-400 font-mono text-[10px]">Unique Username</label>
+              <div className="font-semibold text-cyan-400 font-mono text-sm mt-0.5 flex items-center gap-2">
+                <span>@{user?.username || 'user'}</span>
+                <span className="badge badge-cyan text-[9px] py-0.5 px-2">Unique Identity</span>
+              </div>
+              <p className="text-[10px] text-gray-500 font-mono mt-0.5">Your unique handle used for private chat, contacts, and zero-knowledge shares.</p>
+            </div>
             <div>
               <label className="text-gray-400 font-mono text-[10px]">Full Name</label>
               <div className="font-semibold text-gray-200 mt-0.5">{user?.full_name || 'Administrator'}</div>
@@ -51,6 +59,13 @@ export const SettingsView = ({ storageStats }) => {
             <div>
               <label className="text-gray-400 font-mono text-[10px]">Account Email</label>
               <div className="font-semibold text-cyan-300 font-mono mt-0.5">{user?.email}</div>
+            </div>
+            <div>
+              <label className="text-gray-400 font-mono text-[10px]">Storage Plan & Quota</label>
+              <div className="font-semibold text-purple-400 font-mono mt-0.5 flex items-center gap-2">
+                <span>{user?.is_promotional_premium ? 'Promotional Premium (Slot #1)' : (user?.plan_type?.toUpperCase() || 'BASIC')}</span>
+                <span className="badge badge-purple text-[9px] py-0.5 px-2">1,000 MB Free Storage</span>
+              </div>
             </div>
             <div>
               <label className="text-gray-400 font-mono text-[10px]">Account Role</label>
