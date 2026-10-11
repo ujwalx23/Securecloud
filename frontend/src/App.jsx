@@ -412,13 +412,22 @@ const MainApp = () => {
     }
   };
 
-  if (loading) {
+  if (loading && !user) {
     return (
       <div className="min-h-screen bg-[#050811] flex flex-col items-center justify-center text-cyan-400 font-mono text-xs space-y-4">
         <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center animate-pulse">
           <Shield className="w-6 h-6 text-cyan-400" />
         </div>
         <p className="animate-pulse">Initializing SecureCloud Hybrid Cryptographic Engine...</p>
+        <button
+          onClick={() => {
+            try { localStorage.removeItem('securecloud_token'); } catch {}
+            window.location.reload();
+          }}
+          className="text-[10px] text-gray-500 hover:text-cyan-400 underline font-mono mt-2 transition-colors"
+        >
+          Taking a moment? Click to open sign-in immediately &rarr;
+        </button>
       </div>
     );
   }

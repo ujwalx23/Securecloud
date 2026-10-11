@@ -1,32 +1,79 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('securecloud_token') || null);
-  const [loading, setLoading] = useState(true);
+  // 1. Instant Optimistic State: read cached profile from localStorage
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('securecloud_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [token, setToken] = useState(() => {
+    try {
+      return localStorage.getItem('securecloud_token') || null;
+    } catch {
+      return null;
+    }
+  });
+
+  // If we already have a cached user, DO NOT block the UI! Set loading = false immediately.
+  // If there is no token at all, DO NOT block the UI! Set loading = false immediately.
+  // Only if token exists without any cached user, wait at most 2 seconds.
+  const [loading, setLoading] = useState(() => {
+    const hasToken = Boolean(localStorage.getItem('securecloud_token'));
+    const hasUser = Boolean(localStorage.getItem('securecloud_user'));
+    return hasToken && !hasUser;
+  });
+
+  const isFetchingRef = useRef(false);
 
   const fetchProfile = async (authToken) => {
+    if (!authToken || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
+    const controller = new AbortController();
+    // Aggressive timeout: if backend is sleeping or slow, unblock UI within 3.5s
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+      setLoading(false);
+    }, 3500);
+
     try {
       const res = await fetch('/api/auth/me', {
-        headers: { Authorization: `Bearer ${authToken}` }
+        headers: { Authorization: `Bearer ${authToken}` },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
       if (res.ok) {
         const data = await res.json();
         setUser(data);
-      } else {
+        try {
+          localStorage.setItem('securecloud_user', JSON.stringify(data));
+        } catch (e) {
+          console.warn('LocalStorage save error:', e);
+        }
+      } else if (res.status === 401) {
+        // Stale or revoked token
         logout();
       }
     } catch (err) {
-      console.error('Failed to fetch profile:', err);
+      console.warn('Background profile sync note:', err.name === 'AbortError' ? 'Fast timeout unblock' : err.message);
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
     if (token) {
+      // Fetch in background to sync profile, without blocking UI if user is already cached
       fetchProfile(token);
     } else {
       setLoading(false);
@@ -47,8 +94,14 @@ export const AuthProvider = ({ children }) => {
       throw error;
     }
     localStorage.setItem('securecloud_token', data.access_token);
+    if (data.user) {
+      localStorage.setItem('securecloud_user', JSON.stringify(data.user));
+      setUser(data.user);
+    }
     setToken(data.access_token);
-    await fetchProfile(data.access_token);
+    setLoading(false);
+    fetchProfile(data.access_token);
+    return data;
   };
 
   const register = async (email, username, password, fullName) => {
@@ -106,15 +159,24 @@ export const AuthProvider = ({ children }) => {
       throw new Error(data.detail || 'Google authentication failed');
     }
     localStorage.setItem('securecloud_token', data.access_token);
+    if (data.user) {
+      localStorage.setItem('securecloud_user', JSON.stringify(data.user));
+      setUser(data.user);
+    }
     setToken(data.access_token);
-    await fetchProfile(data.access_token);
+    setLoading(false);
+    fetchProfile(data.access_token);
     return data;
   };
 
   const logout = () => {
-    localStorage.removeItem('securecloud_token');
+    try {
+      localStorage.removeItem('securecloud_token');
+      localStorage.removeItem('securecloud_user');
+    } catch {}
     setToken(null);
     setUser(null);
+    setLoading(false);
   };
 
   return (

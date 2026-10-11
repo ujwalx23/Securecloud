@@ -87,11 +87,12 @@ async def root():
         "security": "RSA-2048 PKI + AES-256-GCM Zero-Knowledge Storage & Audited Auth",
         "plans": {
             "basic": "Free (₹0)",
-            "premium": "₹399/year (1,000 MB storage)",
-            "custom": "Enterprise Direct (Contact: 7977339435)"
+            "premium": "₹399/year (1 GB storage)",
+            "custom": "Enterprise Direct (Contact: ujwalsingh164@gmail.com)"
         }
     }
 
+@app.get("/health")
 @app.get("/api/health")
 async def health_check():
     return {"status": "healthy", "service": "SecureCloud API"}

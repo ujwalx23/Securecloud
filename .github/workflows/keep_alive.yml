@@ -2,15 +2,16 @@ name: Keep Render Backend Awake 24/7
 
 on:
   schedule:
-    # Runs every 10 minutes 24/7/365 to prevent Render free-tier sleep
-    - cron: '*/10 * * * *'
+    # Runs every 8 minutes 24/7/365 to prevent Render free-tier sleep
+    - cron: '*/8 * * * *'
   workflow_dispatch:
 
 jobs:
   keep-alive:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Backend Health Endpoint
+      - name: Ping Backend Health Endpoints
         run: |
           echo "Pinging SecureCloud Render API..."
-          curl -s -f -m 60 https://securecloud-i0qq.onrender.com/health || echo "Wakeup ping triggered"
+          curl -s -f -m 30 https://securecloud-i0qq.onrender.com/health || echo "Health endpoint ping completed"
+          curl -s -f -m 30 https://securecloud-i0qq.onrender.com/api/health || echo "API Health endpoint ping completed"
