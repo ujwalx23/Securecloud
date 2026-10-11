@@ -97,6 +97,7 @@ class UserResponse(BaseModel):
     online_status: bool
     is_verified: bool = False
     is_admin: bool = False
+    dev_otp: Optional[str] = None
     created_at: datetime
 
 class VerifyEmailRequest(BaseModel):
@@ -272,6 +273,14 @@ class AdminOverviewResponse(BaseModel):
     queue_length: int
     total_storage_allocated_bytes: int
     total_storage_used_bytes: int
+    total_files: int = 0
+    total_vault_items: int = 0
+    total_documents: int = 0
+    total_chats: int = 0
+    total_shared_files: int = 0
+    total_inquiries: int = 0
+    pending_inquiries: int = 0
+    active_otps_count: int = 0
     recent_audit_logs: List[Dict[str, Any]]
 
 class AdminUserAction(BaseModel):
@@ -394,3 +403,36 @@ class StorageStatsResponse(BaseModel):
     file_count: int
     folder_count: int
     category_breakdown: dict
+
+# Contact Inquiries Schemas
+class ContactInquiryCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    email: EmailStr
+    category: str = "support"
+    subject: Optional[str] = "Inquiry"
+    message: str = Field(..., min_length=1, max_length=5000)
+
+class ContactInquiryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    name: str
+    email: str
+    category: str
+    subject: str
+    message: str
+    status: str
+    admin_notes: Optional[str] = None
+    ip_address: Optional[str] = None
+    created_at: datetime
+    resolved_at: Optional[datetime] = None
+
+class ContactInquiryStatusUpdate(BaseModel):
+    status: str  # pending, in_progress, resolved, closed
+    admin_notes: Optional[str] = None
+
+class AdminQuotaUpdate(BaseModel):
+    storage_quota_bytes: int
+
+class AdminPasswordReset(BaseModel):
+    new_password: str = Field(..., min_length=8)

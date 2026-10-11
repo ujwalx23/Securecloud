@@ -9,7 +9,8 @@ import {
   Save,
   Search,
   Clock,
-  HardDrive
+  HardDrive,
+  RefreshCw
 } from 'lucide-react';
 
 export const DocumentsView = () => {
@@ -182,6 +183,19 @@ export const DocumentsView = () => {
               <div className="h-full bg-cyan-400" style={{ width: `${Math.max(textPercent, 2)}%` }} />
             </div>
           </div>
+
+          <button
+            onClick={async () => {
+              await fetchDocs();
+              if (refreshProfile) refreshProfile();
+            }}
+            disabled={loading}
+            title="Refresh personal notes & documents"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 border border-slate-800 transition-all text-xs font-semibold shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
 
           <button
             onClick={handleCreateNew}

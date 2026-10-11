@@ -362,6 +362,20 @@ export const FileManager = ({
               <ListIcon className="w-4 h-4" />
             </button>
           </div>
+
+          {/* In-Page Live Refresh Button */}
+          <button
+            onClick={() => {
+              fetchData();
+              if (onUpdateStats) onUpdateStats();
+            }}
+            disabled={loading}
+            title="Refresh vault files & storage"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 border border-slate-800 transition-all text-xs font-semibold shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
         </div>
       </div>
 

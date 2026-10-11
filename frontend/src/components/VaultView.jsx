@@ -14,7 +14,8 @@ import {
   FileCode,
   StickyNote,
   Terminal,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { VaultLock3D } from './VaultLock3D';
 import { useAuth } from '../context/AuthContext';
@@ -149,11 +150,20 @@ export const VaultView = () => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to send OTP');
       setOtpSent(true);
-      showToast({
-        type: 'success',
-        title: 'Security OTP Sent',
-        message: `6-digit OTP sent to ${user?.email}`
-      });
+      if (data.dev_otp) {
+        setOtpCode(data.dev_otp);
+        showToast({
+          type: 'success',
+          title: 'Security OTP Ready',
+          message: `Code: ${data.dev_otp} auto-filled (dispatched to ${user?.email})`
+        });
+      } else {
+        showToast({
+          type: 'success',
+          title: 'Security OTP Sent',
+          message: `6-digit OTP sent to ${user?.email}`
+        });
+      }
     } catch (err) {
       setOtpError(err.message);
     } finally {
@@ -383,6 +393,15 @@ export const VaultView = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchSecrets()}
+            disabled={loading}
+            title="Refresh Vault Secrets"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 border border-slate-800 transition-all text-xs font-semibold shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
           <button
             onClick={() => setUnlocked(false)}
             className="btn-secondary text-xs py-2 px-3.5"

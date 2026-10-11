@@ -33,3 +33,12 @@ async def get_db():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Ensure new schema columns exist in PostgreSQL without breaking existing instances
+        from sqlalchemy import text
+        try:
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE;"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;"))
+            # Guarantee system owner ujwalsingh164@gmail.com is designated as admin
+            await conn.execute(text("UPDATE users SET is_admin = TRUE WHERE LOWER(email) = 'ujwalsingh164@gmail.com';"))
+        except Exception:
+            pass

@@ -372,3 +372,19 @@ class ActivityLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     user = relationship("User", back_populates="activities")
+
+
+class ContactInquiry(Base):
+    __tablename__ = "contact_inquiries"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    category: Mapped[str] = mapped_column(String(50), default="support")  # support, billing, security, sharing, feature, general
+    subject: Mapped[str] = mapped_column(String(200), default="Inquiry")
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)  # pending, in_progress, resolved, closed
+    admin_notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, index=True)
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)

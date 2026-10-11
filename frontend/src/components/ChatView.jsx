@@ -14,7 +14,8 @@ import {
   Search,
   User as UserIcon,
   Smile,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 
 export const ChatView = ({ initialConversationId }) => {
@@ -228,9 +229,19 @@ export const ChatView = ({ initialConversationId }) => {
               </div>
               <h2 className="font-bold text-sm text-gray-100 font-heading">Private Conversations</h2>
             </div>
-            <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
-              <Shield className="w-3 h-3" /> E2E Channel
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => fetchConversations()}
+                disabled={loadingConvs}
+                title="Refresh conversations list"
+                className="p-1 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-gray-400 hover:text-cyan-300 border border-slate-800 transition-all"
+              >
+                <RefreshCw className={`w-3 h-3 text-cyan-400 ${loadingConvs ? 'animate-spin' : ''}`} />
+              </button>
+              <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-1">
+                <Shield className="w-3 h-3" /> E2E Channel
+              </span>
+            </div>
           </div>
 
           <div className="relative mb-3">
@@ -324,6 +335,16 @@ export const ChatView = ({ initialConversationId }) => {
                     </p>
                   </div>
                 </div>
+
+                <button
+                  onClick={() => fetchMessages(activeConvId)}
+                  disabled={loadingMsgs}
+                  title="Refresh Message Thread"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 border border-slate-800 transition-all text-xs font-semibold shadow-sm"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loadingMsgs ? 'animate-spin' : ''}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
               </div>
 
               {/* Messages Body */}

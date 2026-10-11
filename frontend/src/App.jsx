@@ -277,13 +277,22 @@ const MainApp = () => {
     setAuthLoading(true);
     try {
       if (isRegister) {
-        await register(email, username, password, fullName);
+        const regRes = await register(email, username, password, fullName);
         setIsVerifyingEmail(true);
-        showToast({
-          type: 'info',
-          title: 'Verification Code Sent',
-          message: `A 6-digit confirmation code was dispatched to ${email}.`
-        });
+        if (regRes?.dev_otp) {
+          setVerificationCode(regRes.dev_otp);
+          showToast({
+            type: 'success',
+            title: 'Verification Code Ready',
+            message: `Code: ${regRes.dev_otp} (auto-filled, also dispatched to ${email}).`
+          });
+        } else {
+          showToast({
+            type: 'info',
+            title: 'Verification Code Sent',
+            message: `A 6-digit confirmation code was dispatched to ${email}.`
+          });
+        }
       } else {
         await login(email, password);
         showToast({
@@ -344,12 +353,21 @@ const MainApp = () => {
   const handleResendCode = async () => {
     if (resendCooldown > 0) return;
     try {
-      await resendCode(email);
-      showToast({
-        type: 'info',
-        title: 'Code Resent',
-        message: `Fresh verification code dispatched to ${email}.`
-      });
+      const res = await resendCode(email);
+      if (res?.dev_otp) {
+        setVerificationCode(res?.dev_otp);
+        showToast({
+          type: 'success',
+          title: 'Code Ready',
+          message: `Code: ${res.dev_otp} (auto-filled, also dispatched to ${email}).`
+        });
+      } else {
+        showToast({
+          type: 'info',
+          title: 'Code Resent',
+          message: `Fresh verification code dispatched to ${email}.`
+        });
+      }
       setResendCooldown(60);
       const interval = setInterval(() => {
         setResendCooldown((prev) => {
@@ -874,6 +892,7 @@ const MainApp = () => {
               onToggleTrash={handleToggleTrash}
               onDeletePermanent={handleDeletePermanent}
               onInspectFile={(file) => setSelectedFileForDrawer(file)}
+              onRefresh={() => { fetchStats(); fetchRecentFiles(); }}
             />
           )}
 

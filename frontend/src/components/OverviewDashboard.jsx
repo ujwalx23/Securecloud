@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Shield,
   Upload,
@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { SecurityCore3D } from './SecurityCore3D';
 import { FileCard } from './FileCard';
@@ -31,8 +32,11 @@ export const OverviewDashboard = ({
   onToggleFavorite,
   onToggleTrash,
   onDeletePermanent,
-  onInspectFile
+  onInspectFile,
+  onRefresh
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -90,6 +94,24 @@ export const OverviewDashboard = ({
                 <Activity className="w-4 h-4 text-cyan-400" />
                 <span>Inspect Audit Telemetry</span>
               </button>
+              {onRefresh && (
+                <button
+                  onClick={async () => {
+                    setIsRefreshing(true);
+                    try {
+                      await onRefresh();
+                    } finally {
+                      setTimeout(() => setIsRefreshing(false), 500);
+                    }
+                  }}
+                  disabled={isRefreshing}
+                  title="Refresh Dashboard Stats & Recent Files"
+                  className="btn-secondary text-xs py-2.5 px-3.5 border-slate-700/80 hover:border-cyan-400/50"
+                >
+                  <RefreshCw className={`w-4 h-4 text-cyan-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <span>Refresh</span>
+                </button>
+              )}
             </div>
           </div>
 

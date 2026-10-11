@@ -12,7 +12,8 @@ import {
   Trash2,
   Lock,
   Radio,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,22 +23,24 @@ export const ActivityLog = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
 
-  useEffect(() => {
-    const fetchLogs = async () => {
-      try {
-        const res = await fetch('/api/stats/activity', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setLogs(data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/stats/activity', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchLogs();
   }, [token]);
 
@@ -84,9 +87,20 @@ export const ActivityLog = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-slate-950/60 px-3.5 py-2 rounded-xl border border-slate-800">
-          <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
-          <span className="text-xs text-cyan-400 font-mono font-semibold">Telemetry Feed Online</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => fetchLogs()}
+            disabled={loading}
+            title="Refresh Security Logs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 border border-slate-800 transition-all text-xs font-semibold shadow-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <div className="flex items-center gap-2 bg-slate-950/60 px-3.5 py-2 rounded-xl border border-slate-800">
+            <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
+            <span className="text-xs text-cyan-400 font-mono font-semibold">Telemetry Feed Online</span>
+          </div>
         </div>
       </div>
 

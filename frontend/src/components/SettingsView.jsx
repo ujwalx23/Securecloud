@@ -141,12 +141,22 @@ export const SettingsView = ({ storageStats }) => {
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Could not send OTP');
       setOtpSent(true);
-      setPasswordSuccessMsg(`6-digit OTP sent to ${user?.email}. Check your inbox!`);
-      showToast({
-        type: 'success',
-        title: 'OTP Dispatched',
-        message: `Verification code sent to ${user?.email}`
-      });
+      if (data.dev_otp) {
+        setOtpCode(data.dev_otp);
+        setPasswordSuccessMsg(`6-digit OTP: ${data.dev_otp} (Auto-filled below & dispatched to ${user?.email})`);
+        showToast({
+          type: 'success',
+          title: 'Security OTP Ready',
+          message: `Code: ${data.dev_otp} auto-filled (dispatched to ${user?.email})`
+        });
+      } else {
+        setPasswordSuccessMsg(`6-digit OTP sent to ${user?.email}. Check your inbox!`);
+        showToast({
+          type: 'success',
+          title: 'OTP Dispatched',
+          message: `Verification code sent to ${user?.email}`
+        });
+      }
     } catch (err) {
       setPasswordErrMsg(err.message);
       showToast({

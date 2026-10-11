@@ -79,6 +79,9 @@ app.include_router(share_routes.router)
 app.include_router(vault_routes.router)
 app.include_router(stats_routes.router)
 
+from backend.routes.admin_routes import submit_contact_inquiry
+app.post("/api/contact/submit", status_code=201)(submit_contact_inquiry)
+
 @app.get("/")
 async def root():
     return {

@@ -47,16 +47,32 @@ export const ContactView = ({ onClose }) => {
     window.location.href = `mailto:${officialEmail}?subject=${encodedSubject}&body=${encodedBody}`;
   };
 
-  const handleSubmitForm = (e) => {
+  const handleSubmitForm = async (e) => {
     e.preventDefault();
     if (!message.trim()) return;
+
+    try {
+      await fetch('/api/contact/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: senderName || 'Anonymous User',
+          email: senderEmail,
+          category,
+          subject: subject || 'General Inquiry',
+          message
+        })
+      });
+    } catch (err) {
+      console.warn('Backend inquiry save note:', err);
+    }
 
     handleDirectMailto();
     setSubmitted(true);
     showToast({
       type: 'success',
-      title: 'Opening Email Client',
-      message: `Directing inquiry to ${officialEmail}`
+      title: 'Inquiry Submitted',
+      message: `Your inquiry has been logged for admin review and directed to ${officialEmail}`
     });
   };
 

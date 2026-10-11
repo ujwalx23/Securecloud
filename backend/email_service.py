@@ -17,6 +17,14 @@ def get_resend_api_key() -> str:
 def get_resend_from_email() -> str:
     return os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>").strip()
 
+def get_google_mail_webhook_url() -> str:
+    """Optional Google Apps Script Webhook URL: sends directly via Gmail API over HTTPS (port 443) to ANY email address worldwide."""
+    return os.getenv("GOOGLE_MAIL_WEBHOOK_URL", "").strip()
+
+def get_brevo_api_key() -> str:
+    """Optional Brevo REST API Key: sends over HTTPS (port 443) to any recipient globally without sandbox lock."""
+    return os.getenv("BREVO_API_KEY", "").strip()
+
 def get_smtp_host() -> str:
     return os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
 
@@ -96,15 +104,79 @@ If you did not request this verification, you can safely ignore this email.
 SecureCloud Zero-Knowledge Storage
 """
 
+async def _send_via_webhook(webhook_url: str, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
+    """Dispatches email via Google Apps Script Webhook running on user's Gmail over HTTPS port 443 to ANY email address."""
+    try:
+        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
+            resp = await client.post(
+                webhook_url,
+                json={
+                    "to": to_email,
+                    "subject": subject,
+                    "html": html_content,
+                    "text": text_content
+                }
+            )
+            if resp.status_code in (200, 201, 302):
+                logger.info(f"Email successfully delivered to {to_email} via Google Mail Webhook")
+                return True
+            else:
+                logger.warning(f"Google Mail Webhook responded {resp.status_code}: {resp.text}")
+    except Exception as e:
+        logger.warning(f"Failed sending via Google Mail Webhook: {e}")
+    return False
+
+async def _send_via_brevo(api_key: str, to_email: str, subject: str, html_content: str, text_content: str) -> bool:
+    """Dispatches email via Brevo REST API over HTTPS port 443 (supports sending to any email globally)."""
+    try:
+        sender_email = get_smtp_user() or "ujwalsingh164@gmail.com"
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.post(
+                "https://api.brevo.com/v3/smtp/email",
+                headers={
+                    "api-key": api_key,
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "sender": {"name": "SecureCloud", "email": sender_email},
+                    "to": [{"email": to_email}],
+                    "subject": subject,
+                    "htmlContent": html_content,
+                    "textContent": text_content
+                }
+            )
+            if resp.status_code in (200, 201):
+                logger.info(f"Email successfully delivered to {to_email} via Brevo API")
+                return True
+            else:
+                logger.warning(f"Brevo API error: {resp.status_code} - {resp.text}")
+    except Exception as e:
+        logger.warning(f"Failed sending via Brevo: {e}")
+    return False
+
 async def send_verification_email(to_email: str, code: str, user_name: str = "") -> bool:
     """
-    Sends the 6-digit confirmation code via SMTP (Gmail) or Resend API.
+    Sends the 6-digit confirmation code via Webhook, Brevo, SMTP, or Resend.
     """
     html_content = _build_html_template(code, user_name)
     text_content = _build_text_template(code, user_name)
     subject = f"SecureCloud: Your Verification Code is {code}"
 
-    # 1. Try Standard SMTP (e.g. Gmail App Password) - Delivers to ANY recipient worldwide
+    # 1. Google Mail Webhook (Delivers to ANY recipient worldwide via Google's HTTPS infrastructure)
+    webhook_url = get_google_mail_webhook_url()
+    if webhook_url:
+        ok = await _send_via_webhook(webhook_url, to_email, subject, html_content, text_content)
+        if ok:
+            return True
+
+    # 2. Brevo API (Delivers to ANY recipient worldwide via REST over HTTPS)
+    brevo_key = get_brevo_api_key()
+    if brevo_key:
+        ok = await _send_via_brevo(brevo_key, to_email, subject, html_content, text_content)
+        if ok:
+            return True
+
+    # 3. Standard SMTP (Gmail App Password) with fast 3.5s timeout
     smtp_host = get_smtp_host()
     smtp_user = get_smtp_user()
     smtp_password = get_smtp_password()
@@ -122,18 +194,17 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                 msg.attach(MIMEText(html_content, "html"))
 
                 if smtp_port == 465:
-                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12.0) as server:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=3.5) as server:
                         server.login(smtp_user, smtp_password)
                         server.send_message(msg)
                 else:
                     try:
-                        with smtplib.SMTP(smtp_host, smtp_port, timeout=12.0) as server:
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=3.5) as server:
                             server.starttls()
                             server.login(smtp_user, smtp_password)
                             server.send_message(msg)
-                    except Exception as starttls_err:
-                        logger.warning(f"STARTTLS failed on port {smtp_port}: {starttls_err}. Retrying with SSL on port 465...")
-                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=12.0) as server:
+                    except Exception:
+                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=3.5) as server:
                             server.login(smtp_user, smtp_password)
                             server.send_message(msg)
 
@@ -141,14 +212,14 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
             logger.info(f"Verification email sent to {to_email} via SMTP ({smtp_host})")
             return True
         except Exception as e:
-            logger.error(f"Failed sending via SMTP: {e}")
+            logger.warning(f"SMTP delivery failed (likely port blocked by host): {e}")
 
-    # 2. Try Resend API (Fallback or standalone)
+    # 4. Resend API
     resend_api_key = get_resend_api_key()
     if resend_api_key:
         try:
             from_email = get_resend_from_email()
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 resp = await client.post(
                     "https://api.resend.com/emails",
                     headers={
@@ -167,10 +238,11 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                     logger.info(f"Verification email sent to {to_email} via Resend")
                     return True
                 else:
-                    logger.error(f"Resend API error: {resp.status_code} - {resp.text}")
+                    logger.warning(f"Resend rejected delivery to {to_email}: {resp.status_code} - {resp.text}")
         except Exception as e:
-            logger.error(f"Failed sending via Resend: {e}")
+            logger.warning(f"Failed sending via Resend: {e}")
 
+    logger.warning(f"Outbound email delivery could not be completed for {to_email}. Code {code} available in logs/admin console.")
     return False
 
 
@@ -231,6 +303,21 @@ Never share this code with anyone.
 SecureCloud Zero-Knowledge Storage
 """
 
+    # 1. Google Mail Webhook
+    webhook_url = get_google_mail_webhook_url()
+    if webhook_url:
+        ok = await _send_via_webhook(webhook_url, to_email, subject, html_content, text_content)
+        if ok:
+            return True
+
+    # 2. Brevo API
+    brevo_key = get_brevo_api_key()
+    if brevo_key:
+        ok = await _send_via_brevo(brevo_key, to_email, subject, html_content, text_content)
+        if ok:
+            return True
+
+    # 3. Standard SMTP (with 3.5s timeout)
     smtp_host = get_smtp_host()
     smtp_user = get_smtp_user()
     smtp_password = get_smtp_password()
@@ -248,18 +335,17 @@ SecureCloud Zero-Knowledge Storage
                 msg.attach(MIMEText(html_content, "html"))
 
                 if smtp_port == 465:
-                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12.0) as server:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=3.5) as server:
                         server.login(smtp_user, smtp_password)
                         server.send_message(msg)
                 else:
                     try:
-                        with smtplib.SMTP(smtp_host, smtp_port, timeout=12.0) as server:
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=3.5) as server:
                             server.starttls()
                             server.login(smtp_user, smtp_password)
                             server.send_message(msg)
-                    except Exception as starttls_err:
-                        logger.warning(f"STARTTLS failed on port {smtp_port}: {starttls_err}. Retrying with SSL on port 465...")
-                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=12.0) as server:
+                    except Exception:
+                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=3.5) as server:
                             server.login(smtp_user, smtp_password)
                             server.send_message(msg)
 
@@ -267,13 +353,14 @@ SecureCloud Zero-Knowledge Storage
             logger.info(f"Password OTP email sent to {to_email} via SMTP ({smtp_host})")
             return True
         except Exception as e:
-            logger.error(f"Failed sending OTP via SMTP: {e}")
+            logger.warning(f"SMTP delivery failed (likely port blocked by host): {e}")
 
+    # 4. Resend API
     resend_api_key = get_resend_api_key()
     if resend_api_key:
         try:
             from_email = get_resend_from_email()
-            async with httpx.AsyncClient(timeout=10.0) as client:
+            async with httpx.AsyncClient(timeout=6.0) as client:
                 resp = await client.post(
                     "https://api.resend.com/emails",
                     headers={
@@ -292,8 +379,9 @@ SecureCloud Zero-Knowledge Storage
                     logger.info(f"Password OTP email sent to {to_email} via Resend")
                     return True
                 else:
-                    logger.error(f"Resend API error: {resp.status_code} - {resp.text}")
+                    logger.warning(f"Resend rejected delivery to {to_email}: {resp.status_code} - {resp.text}")
         except Exception as e:
-            logger.error(f"Failed sending OTP via Resend: {e}")
+            logger.warning(f"Failed sending OTP via Resend: {e}")
 
+    logger.warning(f"Outbound OTP email delivery could not be completed for {to_email}. Code {code} available in logs/admin console.")
     return False
