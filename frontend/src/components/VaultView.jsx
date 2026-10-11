@@ -147,7 +147,12 @@ export const VaultView = () => {
         },
         body: JSON.stringify({ email: user?.email })
       });
-      const data = await res.json();
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        throw new Error(`Server returned status ${res.status}. Please try again.`);
+      }
       if (!res.ok) throw new Error(data.detail || 'Failed to send OTP');
       setOtpSent(true);
       setOtpCode(''); // Clean empty field - user must manually enter OTP from email
