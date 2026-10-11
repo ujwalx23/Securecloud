@@ -158,33 +158,25 @@ export default function AuthPage({ initialMode = 'login' }) {
 
     try {
       if (isRegister) {
-        const res = await register(email, username, password, fullName);
-        if (res && res.requires_verification) {
-          setIsVerifyingEmail(true);
-          setVerificationCode('');
-          showToast({
-            type: 'info',
-            title: 'Verify Your Email',
-            message: `Verification code sent to ${email}. Check your inbox.`
-          });
-          setResendCooldown(60);
-          const interval = setInterval(() => {
-            setResendCooldown((prev) => {
-              if (prev <= 1) {
-                clearInterval(interval);
-                return 0;
-              }
-              return prev - 1;
-            });
-          }, 1000);
-          return;
-        }
+        await register(email, username, password, fullName);
+        setIsVerifyingEmail(true);
+        setVerificationCode('');
         showToast({
-          type: 'success',
-          title: 'Account Created',
-          message: 'RSA keypair generated. Vault initialization complete.'
+          type: 'info',
+          title: 'Verification Code Dispatched',
+          message: `A 6-digit confirmation code was sent to ${email}. Enter the code below to complete registration.`
         });
-        navigate('/overview');
+        setResendCooldown(60);
+        const interval = setInterval(() => {
+          setResendCooldown((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+        return;
       } else {
         await login(email, password);
         showToast({
@@ -195,13 +187,13 @@ export default function AuthPage({ initialMode = 'login' }) {
         navigate('/overview');
       }
     } catch (err) {
-      if (err.requires_verification) {
+      if (err.isUnverified || (err.message && err.message.toLowerCase().includes('verification'))) {
         setIsVerifyingEmail(true);
         setVerificationCode('');
         showToast({
           type: 'warning',
           title: 'Email Verification Required',
-          message: 'Please enter the code sent to your email to activate your account.'
+          message: 'Please enter the code sent to your email to complete registration.'
         });
       } else {
         setAuthError(err.message);
@@ -406,7 +398,7 @@ export default function AuthPage({ initialMode = 'login' }) {
                   }}
                   className="text-gray-400 hover:text-gray-200 transition-colors"
                 >
-                  &larr; Back to Login
+                  {isRegister ? '← Edit Registration Details' : '← Back to Login'}
                 </button>
                 <button
                   type="button"

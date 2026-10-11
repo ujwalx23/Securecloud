@@ -132,6 +132,16 @@ export const AuthProvider = ({ children }) => {
     if (!res.ok) {
       throw new Error(data.detail || 'Email verification failed');
     }
+    if (data.access_token) {
+      localStorage.setItem('securecloud_token', data.access_token);
+      if (data.user) {
+        localStorage.setItem('securecloud_user', JSON.stringify(data.user));
+        setUser(data.user);
+      }
+      setToken(data.access_token);
+      setLoading(false);
+      fetchProfile(data.access_token);
+    }
     return data;
   };
 

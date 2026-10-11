@@ -64,10 +64,20 @@ async def register_user(user_in: UserRegister, request: Request, db: AsyncSessio
     user_by_uname = await db.execute(select(User).where(User.username == clean_username))
     existing_by_uname = user_by_uname.scalar_one_or_none()
     if existing_by_uname and existing_by_uname.email != clean_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Username '{clean_username}' is already taken. Please choose another."
-        )
+        now = datetime.now(timezone.utc)
+        expires_at = existing_by_uname.verification_expires_at
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if existing_by_uname.is_verified or (expires_at and now <= expires_at):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Username '{clean_username}' is already taken. Please choose another."
+            )
+        else:
+            # Stale abandoned unverified account whose OTP expired: clean it up
+            await db.execute(delete(User).where(User.id == existing_by_uname.id, User.is_verified == False))
+            await db.commit()
 
     # Check for email collision
     result = await db.execute(select(User).where(User.email == clean_email))
@@ -185,16 +195,46 @@ async def verify_email(data: VerifyEmailRequest, request: Request, db: AsyncSess
         ip_address=get_client_ip(request)
     )
     db.add(activity)
+
+    # Issue JWT Token & Register UserSession immediately so user is automatically authenticated upon completing OTP!
+    ip_addr = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "Unknown Browser")
+    access_token = create_access_token(data={"sub": user.id, "email": user.email, "username": user.username})
+    await create_user_session(db, user.id, access_token, ip_addr, user_agent)
+    user.online_status = True
+    user.last_active_at = datetime.now(timezone.utc)
+
     await db.commit()
     await db.refresh(user)
 
-    msg = f"Email verified successfully! You have been granted {plan_assigned} plan."
+    msg = f"Email verified and registration complete! You have been granted {plan_assigned} plan."
     if plan_assigned == "premium":
         msg += f" Promotional Premium Slot #{slot_or_pos} (1,000 MB) is active."
     else:
         msg += f" You are at queue position #{slot_or_pos} for automatic promotional upgrade."
 
-    return {"message": msg, "verified": True, "plan": plan_assigned, "slot_or_queue": slot_or_pos}
+    return {
+        "message": msg,
+        "verified": True,
+        "plan": plan_assigned,
+        "slot_or_queue": slot_or_pos,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "username": user.username,
+            "full_name": user.full_name,
+            "plan_type": user.plan_type,
+            "storage_quota_bytes": user.storage_quota_bytes,
+            "storage_used_bytes": user.storage_used_bytes,
+            "text_storage_quota_bytes": user.text_storage_quota_bytes,
+            "text_storage_used_bytes": user.text_storage_used_bytes,
+            "is_verified": user.is_verified,
+            "is_admin": user.is_admin,
+            "is_promotional_premium": user.is_promotional_premium
+        }
+    }
 
 
 @router.post("/resend-code")

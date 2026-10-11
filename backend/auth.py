@@ -1,5 +1,6 @@
 import hashlib
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Request
@@ -37,7 +38,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     return jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=ALGORITHM)
 
 async def create_user_session(
@@ -50,15 +51,28 @@ async def create_user_session(
 ) -> UserSession:
     token_hash = hashlib.sha256(token.encode('utf-8')).hexdigest()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)
-    session = UserSession(
-        user_id=user_id,
-        token_hash=token_hash,
-        ip_address=ip_address,
-        user_agent=user_agent,
-        expires_at=expires_at,
-        is_revoked=False
+
+    existing_sess = await db.execute(
+        select(UserSession).where(UserSession.token_hash == token_hash)
     )
-    db.add(session)
+    session = existing_sess.scalars().first()
+    if session:
+        session.expires_at = expires_at
+        session.is_revoked = False
+        if ip_address:
+            session.ip_address = ip_address
+        if user_agent:
+            session.user_agent = user_agent
+    else:
+        session = UserSession(
+            user_id=user_id,
+            token_hash=token_hash,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            expires_at=expires_at,
+            is_revoked=False
+        )
+        db.add(session)
     await db.flush()
     return session
 
@@ -85,7 +99,7 @@ async def get_current_user(
     sess_res = await db.execute(
         select(UserSession).where(UserSession.token_hash == token_hash)
     )
-    user_session = sess_res.scalar_one_or_none()
+    user_session = sess_res.scalars().first()
     if user_session and user_session.is_revoked:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

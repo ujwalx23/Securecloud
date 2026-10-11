@@ -98,6 +98,8 @@ class UserResponse(BaseModel):
     is_verified: bool = False
     is_admin: bool = False
     created_at: datetime
+    requires_verification: bool = True
+    message: Optional[str] = "Verification code dispatched to your email."
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr

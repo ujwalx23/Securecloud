@@ -96,7 +96,52 @@ async def run_all_tests():
         assert v_res.json()["verified"] is True
         assert v_res.json()["plan"] == "premium"
         assert v_res.json()["slot_or_queue"] == 1
+        assert "access_token" in v_res.json()
         print("  [PASS] Alice verified with OTP and successfully claimed Promotional Premium Slot #1!")
+
+        # Unverified user coming back later with same details test
+        r_unv = await ac.post("/api/auth/register", json={
+            "email": "pending_user@example.com",
+            "username": "user_pending",
+            "password": "Password123!",
+            "full_name": "Pending User"
+        })
+        assert r_unv.status_code == 201
+        assert r_unv.json()["requires_verification"] is True
+
+        # Cannot login while unverified
+        l_unv = await ac.post("/api/auth/login", json={"login": "pending_user@example.com", "password": "Password123!"})
+        assert l_unv.status_code == 403
+
+        # Returns later with same details -> fresh OTP dispatched
+        r_retry = await ac.post("/api/auth/register", json={
+            "email": "pending_user@example.com",
+            "username": "user_pending",
+            "password": "Password123!",
+            "full_name": "Pending User"
+        })
+        assert r_retry.status_code == 201
+        assert r_retry.json()["requires_verification"] is True
+
+        # Submits OTP -> registered & token issued
+        async with TestingSessionLocal() as session:
+            u_pend = (await session.execute(select(User).where(User.email == "pending_user@example.com"))).scalar_one()
+            p_otp = u_pend.verification_code
+
+        v_pend = await ac.post("/api/auth/verify-email", json={"email": "pending_user@example.com", "code": p_otp})
+        assert v_pend.status_code == 200
+        assert v_pend.json()["verified"] is True
+        assert "access_token" in v_pend.json()
+        print("  [PASS] Unverified user returns later with same details, receives fresh OTP, and completes registration.")
+
+        # Clean up test user to preserve exact slot assignments for downstream tests
+        async with TestingSessionLocal() as session:
+            await session.delete(u_pend)
+            slot2 = (await session.execute(select(StorageAllocationSlot).where(StorageAllocationSlot.user_id == u_pend.id))).scalar_one_or_none()
+            if slot2:
+                slot2.user_id = None
+                slot2.allocated_at = None
+            await session.commit()
 
         # TEST 3: Login with Username and Email & Session Management
         print("\n[TEST 3] Testing Login with Username, Password Validation & Sessions...")
