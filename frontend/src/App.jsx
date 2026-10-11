@@ -420,6 +420,9 @@ const MainApp = () => {
                   <p className="text-xs font-mono font-bold text-cyan-400">
                     {email}
                   </p>
+                  <p className="text-[11px] text-gray-400/80">
+                    (Check your inbox or Spam/Junk folder if not visible)
+                  </p>
                 </div>
 
                 <form onSubmit={handleVerifyEmailSubmit} className="space-y-4">

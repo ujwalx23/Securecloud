@@ -67,11 +67,27 @@ def _build_html_template(code: str, name: str = "") -> str:
     </html>
     """
 
+def _build_text_template(code: str, name: str = "") -> str:
+    display_name = name or "User"
+    return f"""Hello {display_name},
+
+Your SecureCloud verification code is: {code}
+
+Enter this 6-digit code to activate your encrypted storage vault. This code expires in 15 minutes.
+
+If you did not request this verification, you can safely ignore this email.
+
+--
+SecureCloud Zero-Knowledge Storage
+"""
+
 async def send_verification_email(to_email: str, code: str, user_name: str = "") -> bool:
     """
     Sends the 6-digit confirmation code via Resend, SMTP, or logs to console as safety fallback.
     """
     html_content = _build_html_template(code, user_name)
+    text_content = _build_text_template(code, user_name)
+    subject = f"SecureCloud: Your Verification Code is {code}"
 
     # 1. Try Resend API (Recommended)
     resend_api_key = get_resend_api_key()
@@ -88,8 +104,9 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                     json={
                         "from": from_email,
                         "to": [to_email],
-                        "subject": f"Your SecureCloud Verification Code: {code}",
-                        "html": html_content
+                        "subject": subject,
+                        "html": html_content,
+                        "text": text_content
                     }
                 )
                 if resp.status_code in (200, 201):
@@ -105,9 +122,10 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
         try:
             def _send_smtp():
                 msg = MIMEMultipart("alternative")
-                msg["Subject"] = f"Your SecureCloud Verification Code: {code}"
+                msg["Subject"] = subject
                 msg["From"] = SMTP_FROM_EMAIL
                 msg["To"] = to_email
+                msg.attach(MIMEText(text_content, "plain"))
                 msg.attach(MIMEText(html_content, "html"))
 
                 if SMTP_PORT == 465:
