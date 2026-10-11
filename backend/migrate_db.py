@@ -74,6 +74,14 @@ BEGIN
     EXCEPTION WHEN duplicate_column THEN NULL; END;
 
     BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR(100);
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    BEGIN
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires_at TIMESTAMPTZ;
+    EXCEPTION WHEN duplicate_column THEN NULL; END;
+
+    BEGIN
         ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
     EXCEPTION WHEN duplicate_column THEN NULL; END;
 END $$;
