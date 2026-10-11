@@ -134,18 +134,11 @@ def encrypt_user_private_key(private_key_pem: str, user_id: str) -> str:
     return encrypted_bytes.hex()
 
 def decrypt_user_private_key(encrypted_private_key_hex: str, user_id: str) -> str:
-    """Decrypt user's RSA private key with primary master key or legacy password fallback."""
+    """Decrypt user's RSA private key with primary deterministic user master key."""
     key = get_user_master_key(user_id)
-    try:
-        encrypted_bytes = bytes.fromhex(encrypted_private_key_hex)
-        decrypted_bytes = decrypt_data_aes(encrypted_bytes, key)
-        return decrypted_bytes.decode('utf-8')
-    except Exception:
-        # Fallback for initial demo user or legacy accounts encrypted with default password
-        legacy_key = derive_key_from_password("Password123!", salt=MASTER_KEY_SALT)
-        encrypted_bytes = bytes.fromhex(encrypted_private_key_hex)
-        decrypted_bytes = decrypt_data_aes(encrypted_bytes, legacy_key)
-        return decrypted_bytes.decode('utf-8')
+    encrypted_bytes = bytes.fromhex(encrypted_private_key_hex)
+    decrypted_bytes = decrypt_data_aes(encrypted_bytes, key)
+    return decrypted_bytes.decode('utf-8')
 
 def encrypt_private_key(private_key_pem: str, password: str) -> str:
     """Encrypt user's RSA private key using AES-256 with key derived from user password."""

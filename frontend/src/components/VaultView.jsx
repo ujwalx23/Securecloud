@@ -152,8 +152,8 @@ export const VaultView = () => {
             </button>
           </form>
 
-          <p className="text-[10px] text-gray-500 font-mono">
-            Demo tip: Use your master password (e.g. Password123!)
+          <p className="text-[10px] text-gray-400 font-mono">
+            Zero-knowledge security: Enter your master account password to unseal and decrypt your vault.
           </p>
         </div>
       </div>

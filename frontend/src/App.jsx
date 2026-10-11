@@ -23,7 +23,8 @@ import {
   ArrowRight,
   CheckCircle2,
   KeyRound,
-  Sparkles,
+  Eye,
+  EyeOff,
   Server,
   Zap,
   Cpu,
@@ -62,6 +63,7 @@ const MainApp = () => {
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
@@ -146,6 +148,12 @@ const MainApp = () => {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError(null);
+
+    if (isRegister && password.length < 8) {
+      setAuthError('Password must be at least 8 characters long for secure key derivation.');
+      return;
+    }
+
     setAuthLoading(true);
     try {
       if (isRegister) {
@@ -343,7 +351,7 @@ const MainApp = () => {
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Alex Mercer"
+                    placeholder="e.g. John Doe"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     className="input-field text-xs py-3"
@@ -356,7 +364,7 @@ const MainApp = () => {
                 <input
                   type="email"
                   required
-                  placeholder="admin@securecloud.io"
+                  placeholder="you@domain.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="input-field text-xs py-3"
@@ -365,14 +373,43 @@ const MainApp = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-300 mb-1.5">Master Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="input-field text-xs py-3"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input-field text-xs py-3 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 focus:outline-none transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                {isRegister && password && (
+                  <div className="space-y-1 mt-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono">
+                      <span className="text-gray-400">Password Strength:</span>
+                      <span className={password.length >= 12 ? 'text-emerald-400 font-semibold' : password.length >= 8 ? 'text-amber-400 font-semibold' : 'text-rose-400 font-semibold'}>
+                        {password.length < 8 ? 'Too Short (min 8 chars)' : password.length >= 12 ? 'Strong (High Entropy)' : 'Good'}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          password.length < 8 ? 'w-1/4 bg-rose-500' : password.length >= 12 ? 'w-full bg-emerald-500' : 'w-2/3 bg-amber-500'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {authError && (
@@ -394,20 +431,6 @@ const MainApp = () => {
                 <ArrowRight className="w-4 h-4" />
               </button>
             </form>
-
-            <div className="pt-2 text-center border-t border-slate-800/80">
-              <button
-                onClick={() => {
-                  setIsRegister(false);
-                  setEmail('admin@securecloud.io');
-                  setPassword('Password123!');
-                }}
-                className="text-[11px] text-cyan-400 hover:text-cyan-300 hover:underline font-mono inline-flex items-center gap-1.5 py-1 px-3 rounded-lg bg-cyan-500/10 border border-cyan-500/25"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-                Fill Demo Credentials (admin@securecloud.io)
-              </button>
-            </div>
 
 
             <div className="text-center text-xs text-gray-400">

@@ -1,5 +1,11 @@
+import os
 import io
 import pytest
+
+# Ensure tests run against isolated local SQLite database
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///./backend/test_cache.db"
+os.environ["STORAGE_BACKEND"] = "local"
+
 from fastapi.testclient import TestClient
 from backend.main import app
 
@@ -17,10 +23,15 @@ def test_health_endpoint():
 
 def test_full_user_workflow():
     with TestClient(app) as client:
-        # 1. Login
+        # 1. Register and Login
+        reg_res = client.post(
+            "/api/auth/register",
+            json={"email": "produser@securecloud.io", "password": "SecurePassword123!", "full_name": "Production User"}
+        )
+        assert reg_res.status_code == 201
         login_res = client.post(
             "/api/auth/login",
-            json={"email": "admin@securecloud.io", "password": "Password123!"}
+            json={"email": "produser@securecloud.io", "password": "SecurePassword123!"}
         )
         assert login_res.status_code == 200
         token = login_res.json()["access_token"]
@@ -29,7 +40,7 @@ def test_full_user_workflow():
         # 2. Get Profile
         me_res = client.get("/api/auth/me", headers=headers)
         assert me_res.status_code == 200
-        assert me_res.json()["email"] == "admin@securecloud.io"
+        assert me_res.json()["email"] == "produser@securecloud.io"
 
         # 3. Create Folder
         folder_res = client.post(

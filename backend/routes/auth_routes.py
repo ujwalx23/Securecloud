@@ -13,7 +13,14 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == user_in.email))
+    clean_email = user_in.email.strip().lower()
+    if len(user_in.password) < 8:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be at least 8 characters long."
+        )
+
+    result = await db.execute(select(User).where(User.email == clean_email))
     if result.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -27,20 +34,19 @@ async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db
 
     user = User(
         id=user_id,
-        email=user_in.email,
+        email=clean_email,
         hashed_password=get_password_hash(user_in.password),
-        full_name=user_in.full_name or user_in.email.split("@")[0].capitalize(),
+        full_name=user_in.full_name or clean_email.split("@")[0].capitalize(),
         public_key_pem=public_pem,
         encrypted_private_key_pem=encrypted_priv_key
     )
     db.add(user)
     await db.flush()
 
-
     activity = ActivityLog(
         user_id=user.id,
         action_type="HYBRID_REGISTER",
-        description="Account created with RSA-2048 keypair generation."
+        description="Account registered with unique RSA-2048 keypair generation."
     )
     db.add(activity)
     await db.commit()
@@ -50,7 +56,8 @@ async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db
 
 @router.post("/login", response_model=Token)
 async def login_user(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == credentials.email))
+    clean_email = credentials.email.strip().lower()
+    result = await db.execute(select(User).where(User.email == clean_email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.hashed_password):
         raise HTTPException(
