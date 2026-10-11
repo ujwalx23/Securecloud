@@ -22,16 +22,18 @@ def test_health_endpoint():
         assert response.json()["status"] == "healthy"
 
 def test_full_user_workflow():
+    import time
+    test_email = f"user_{int(time.time()*1000)}@securecloud.io"
     with TestClient(app) as client:
         # 1. Register and Login
         reg_res = client.post(
             "/api/auth/register",
-            json={"email": "produser@securecloud.io", "password": "SecurePassword123!", "full_name": "Production User"}
+            json={"email": test_email, "password": "SecurePassword123!", "full_name": "Production User"}
         )
         assert reg_res.status_code == 201
         login_res = client.post(
             "/api/auth/login",
-            json={"email": "produser@securecloud.io", "password": "SecurePassword123!"}
+            json={"email": test_email, "password": "SecurePassword123!"}
         )
         assert login_res.status_code == 200
         token = login_res.json()["access_token"]
@@ -40,7 +42,7 @@ def test_full_user_workflow():
         # 2. Get Profile
         me_res = client.get("/api/auth/me", headers=headers)
         assert me_res.status_code == 200
-        assert me_res.json()["email"] == "produser@securecloud.io"
+        assert me_res.json()["email"] == test_email
 
         # 3. Create Folder
         folder_res = client.post(

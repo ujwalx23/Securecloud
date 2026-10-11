@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -7,6 +7,7 @@ from backend.models import User, ActivityLog
 from backend.schemas import UserRegister, UserLogin, Token, UserResponse
 from backend.auth import get_password_hash, verify_password, create_access_token, get_current_user
 from backend.crypto_utils import generate_rsa_keypair, encrypt_user_private_key
+from backend.rate_limiter import login_rate_limiter
 import uuid
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -55,15 +56,24 @@ async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db
     return user
 
 @router.post("/login", response_model=Token)
-async def login_user(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
+async def login_user(credentials: UserLogin, request: Request, db: AsyncSession = Depends(get_db)):
     clean_email = credentials.email.strip().lower()
+
+    # 1. Check rate limiter before checking password
+    login_rate_limiter.check(request, clean_email)
+
     result = await db.execute(select(User).where(User.email == clean_email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(credentials.password, user.hashed_password):
+        # 2. Record failure to track brute-force attacks
+        login_rate_limiter.record_failure(request, clean_email)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password."
         )
+
+    # 3. Clear failed attempts on success
+    login_rate_limiter.record_success(request, clean_email)
 
     access_token = create_access_token(data={"sub": user.id, "email": user.email})
 
