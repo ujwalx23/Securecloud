@@ -1,3 +1,4 @@
+import pytest
 import os
 import io
 import time
@@ -6,6 +7,11 @@ import requests
 BASE_URL = "http://127.0.0.1:8000"
 
 def test_full_end_to_end_verification():
+    try:
+        requests.get(f"{BASE_URL}/api/health", timeout=1.0)
+    except Exception:
+        pytest.skip(f"Live server not running at {BASE_URL}. Start server with start_local.bat to run live end-to-end tests.")
+
     print("\n=======================================================")
     print("RUNNING END-TO-END VERIFICATION OF SECURECLOUD PLATFORM")
     print("=======================================================\n")

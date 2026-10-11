@@ -36,11 +36,11 @@ export const SecurityCore3D = ({ onLayerClick }) => {
       specs: ['256-bit cryptographic digest', 'Immutable database record', 'Pre- and post-decryption verification', 'Zero corruption guarantee']
     },
     {
-      id: 'zero-trust',
-      label: 'ZERO-TRUST',
-      subtitle: 'Role & Scope Enforcement',
+      id: 'zero-knowledge',
+      label: 'ZERO-KNOWLEDGE',
+      subtitle: 'Cryptographic Isolation',
       color: 'text-purple-400 border-purple-500/40 bg-purple-500/10',
-      title: 'Zero-Trust Architecture & Server Enforced Scope',
+      title: 'Zero-Knowledge Cryptographic Isolation & Security Scope',
       desc: 'No entity—not even database administrators or cloud hosts—can read user file contents without private cryptographic keys. Access revocation immediately invalidates authorization tokens and enforces strict 403 Forbidden barriers on endpoints.',
       specs: ['Strict 403 server-side revocation', 'Expirable time-scoped share tokens', 'Hardware-isolated secrets vault', 'Comprehensive security audit telemetry']
     },

@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.config import STORAGE_DIR
+from backend.storage_service import storage_service
 from backend.database import get_db
 from backend.models import User, FileItem, FileVersion, ActivityLog
 from backend.schemas import FileResponse, FileVersionResponse
@@ -87,10 +87,7 @@ async def upload_file(
 
     file_uuid = str(uuid.uuid4())
     filename_on_disk = f"{file_uuid}.enc"
-    storage_path = str(STORAGE_DIR / filename_on_disk)
-
-    with open(storage_path, "wb") as f:
-        f.write(stored_bytes)
+    storage_path = storage_service.save_file(filename_on_disk, stored_bytes)
 
     stored_size = len(stored_bytes)
 
@@ -162,8 +159,7 @@ async def upload_file(
         return new_file
 
 async def _decrypt_file_item(file_item: FileItem, user: User) -> bytes:
-    with open(file_item.storage_path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = storage_service.get_file(file_item.storage_path)
 
     if not file_item.is_encrypted:
         return file_bytes
@@ -189,7 +185,7 @@ async def download_file(
         select(FileItem).where(FileItem.id == file_id, FileItem.user_id == current_user.id)
     )
     file_item = res.scalar_one_or_none()
-    if not file_item or not os.path.exists(file_item.storage_path):
+    if not file_item or not storage_service.file_exists(file_item.storage_path):
         raise HTTPException(status_code=404, detail="File not found.")
 
     try:
@@ -221,7 +217,7 @@ async def preview_file(
         select(FileItem).where(FileItem.id == file_id, FileItem.user_id == current_user.id)
     )
     file_item = res.scalar_one_or_none()
-    if not file_item or not os.path.exists(file_item.storage_path):
+    if not file_item or not storage_service.file_exists(file_item.storage_path):
         raise HTTPException(status_code=404, detail="File not found.")
 
     try:
@@ -310,11 +306,7 @@ async def delete_file_permanently(
 
     current_user.storage_used_bytes = max(0, current_user.storage_used_bytes - file_item.file_size)
 
-    if os.path.exists(file_item.storage_path):
-        try:
-            os.remove(file_item.storage_path)
-        except OSError:
-            pass
+    storage_service.delete_file(file_item.storage_path)
 
     activity = ActivityLog(
         user_id=current_user.id,

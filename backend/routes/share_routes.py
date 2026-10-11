@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from backend.database import get_db
+from backend.storage_service import storage_service
 from backend.models import User, FileItem, Folder, ShareLink, UserShare, ActivityLog
 from backend.schemas import ShareLinkCreate, ShareLinkResponse, UserShareCreate, UserShareResponse
 from backend.auth import get_current_user, get_password_hash, verify_password
@@ -213,11 +214,10 @@ async def download_user_shared_file(
 
     file_res = await db.execute(select(FileItem).where(FileItem.id == file_id))
     file_item = file_res.scalar_one_or_none()
-    if not file_item or not os.path.exists(file_item.storage_path):
+    if not file_item or not storage_service.file_exists(file_item.storage_path):
         raise HTTPException(status_code=404, detail="File resource not found on server.")
 
-    with open(file_item.storage_path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = storage_service.get_file(file_item.storage_path)
 
     recipient_priv_key = decrypt_user_private_key(current_user.encrypted_private_key_pem, current_user.id)
     file_dek = rsa_decrypt_dek(user_share.encrypted_dek_for_recipient, recipient_priv_key)
@@ -346,14 +346,13 @@ async def download_shared_file(
 
     f_res = await db.execute(select(FileItem).where(FileItem.id == share.file_id))
     file_item = f_res.scalar_one_or_none()
-    if not file_item or not os.path.exists(file_item.storage_path):
+    if not file_item or not storage_service.file_exists(file_item.storage_path):
         raise HTTPException(status_code=404, detail="Shared file resource not available.")
 
     owner_res = await db.execute(select(User).where(User.id == file_item.user_id))
     owner = owner_res.scalar_one_or_none()
 
-    with open(file_item.storage_path, "rb") as f:
-        file_bytes = f.read()
+    file_bytes = storage_service.get_file(file_item.storage_path)
 
     if file_item.is_encrypted:
         owner_priv_key = decrypt_user_private_key(owner.encrypted_private_key_pem, owner.id)

@@ -67,7 +67,7 @@ export const Navbar = ({
             </div>
             <div className="text-[10px] text-cyan-400 font-mono flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              AES-256-GCM Zero-Trust E2EE
+              AES-256-GCM End-to-End Encrypted
             </div>
           </div>
         </div>

@@ -286,7 +286,7 @@ const MainApp = () => {
             </div>
 
             <h1 className="text-4xl lg:text-5xl font-black font-heading tracking-tight leading-tight">
-              Zero-Trust <span className="gradient-text">Encrypted Storage</span> & Shared Data Vault
+              Zero-Knowledge <span className="gradient-text">Encrypted Storage</span> & Shared Data Vault
             </h1>
 
             <p className="text-sm text-gray-400 leading-relaxed max-w-lg font-medium">
