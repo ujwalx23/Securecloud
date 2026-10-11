@@ -24,7 +24,15 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     storage_quota_bytes: int
     storage_used_bytes: int
+    is_verified: bool = False
     created_at: datetime
+
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(..., min_length=6, max_length=6, description="6-digit verification code")
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
 
 # Folder Schemas
 class FolderCreate(BaseModel):

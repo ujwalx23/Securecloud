@@ -41,7 +41,10 @@ export const AuthProvider = ({ children }) => {
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.detail || 'Login failed');
+      const error = new Error(data.detail || 'Login failed');
+      error.status = res.status;
+      error.isUnverified = res.status === 403 && (data.detail || '').includes('verify');
+      throw error;
     }
     localStorage.setItem('securecloud_token', data.access_token);
     setToken(data.access_token);
@@ -58,8 +61,33 @@ export const AuthProvider = ({ children }) => {
     if (!res.ok) {
       throw new Error(data.detail || 'Registration failed');
     }
-    // Auto login
-    await login(email, password);
+    return data;
+  };
+
+  const verifyEmail = async (email, code) => {
+    const res = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, code })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Email verification failed');
+    }
+    return data;
+  };
+
+  const resendCode = async (email) => {
+    const res = await fetch('/api/auth/resend-code', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Failed to resend code');
+    }
+    return data;
   };
 
   const logout = () => {
@@ -69,7 +97,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refreshProfile: () => fetchProfile(token) }}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
+      login,
+      register,
+      verifyEmail,
+      resendCode,
+      logout,
+      refreshProfile: () => fetchProfile(token)
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -28,11 +28,13 @@ import {
   Server,
   Zap,
   Cpu,
-  Fingerprint
+  Fingerprint,
+  Mail,
+  RefreshCw
 } from 'lucide-react';
 
 const MainApp = () => {
-  const { user, token, loading, login, register } = useAuth();
+  const { user, token, loading, login, register, verifyEmail, resendCode } = useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
@@ -67,6 +69,11 @@ const MainApp = () => {
   const [fullName, setFullName] = useState('');
   const [authError, setAuthError] = useState(null);
   const [authLoading, setAuthLoading] = useState(false);
+
+  // Email verification state
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Modals state
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -158,10 +165,11 @@ const MainApp = () => {
     try {
       if (isRegister) {
         await register(email, password, fullName);
+        setIsVerifyingEmail(true);
         showToast({
-          type: 'success',
-          title: 'Cryptographic Vault Generated',
-          message: 'RSA-2048 keypair generated and initialized successfully.'
+          type: 'info',
+          title: 'Verification Code Sent',
+          message: `A 6-digit confirmation code was dispatched to ${email}.`
         });
       } else {
         await login(email, password);
@@ -172,6 +180,9 @@ const MainApp = () => {
         });
       }
     } catch (err) {
+      if (err.isUnverified) {
+        setIsVerifyingEmail(true);
+      }
       setAuthError(err.message);
       showToast({
         type: 'error',
@@ -180,6 +191,68 @@ const MainApp = () => {
       });
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  const handleVerifyEmailSubmit = async (e) => {
+    e.preventDefault();
+    setAuthError(null);
+    if (!verificationCode || verificationCode.trim().length !== 6) {
+      setAuthError('Please enter the complete 6-digit code.');
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      await verifyEmail(email, verificationCode.trim());
+      showToast({
+        type: 'success',
+        title: 'Email Verified',
+        message: 'Your account is active! Logging in...'
+      });
+      setIsVerifyingEmail(false);
+      setVerificationCode('');
+      if (password) {
+        await login(email, password);
+      } else {
+        setIsRegister(false);
+      }
+    } catch (err) {
+      setAuthError(err.message);
+      showToast({
+        type: 'error',
+        title: 'Verification Failed',
+        message: err.message
+      });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    try {
+      await resendCode(email);
+      showToast({
+        type: 'info',
+        title: 'Code Resent',
+        message: `Fresh verification code dispatched to ${email}.`
+      });
+      setResendCooldown(60);
+      const interval = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err) {
+      showToast({
+        type: 'error',
+        title: 'Resend Failed',
+        message: err.message
+      });
     }
   };
 
@@ -332,17 +405,91 @@ const MainApp = () => {
 
           {/* Right Column: Glassmorphic Auth Form */}
           <div className="glass-panel p-8 space-y-6 border-slate-800/80 shadow-2xl relative">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/30">
-                <Shield className="w-7 h-7 text-white drop-shadow-md" />
+            {isVerifyingEmail ? (
+              <div className="space-y-6 animate-fade-in">
+                <div className="text-center space-y-2">
+                  <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/20">
+                    <Mail className="w-7 h-7 drop-shadow-md" />
+                  </div>
+                  <h2 className="text-2xl font-black font-heading text-gray-100">
+                    Verify Your Email
+                  </h2>
+                  <p className="text-xs text-gray-400">
+                    Enter the 6-digit confirmation code dispatched to:
+                  </p>
+                  <p className="text-xs font-mono font-bold text-cyan-400">
+                    {email}
+                  </p>
+                </div>
+
+                <form onSubmit={handleVerifyEmailSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1.5 text-center">
+                      6-Digit Security Code
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      autoFocus
+                      placeholder="• • • • • •"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, ''))}
+                      className="input-field text-center font-mono text-2xl tracking-[0.5em] py-3.5 bg-slate-950/90 border-cyan-500/40 text-cyan-300 focus:border-cyan-400"
+                    />
+                  </div>
+
+                  {authError && (
+                    <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                      <span>{authError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="btn-primary w-full justify-center text-xs py-3 shadow-lg shadow-cyan-500/25"
+                  >
+                    {authLoading ? 'Verifying Security Code...' : 'Verify & Activate Vault'}{' '}
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </form>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVerifyingEmail(false);
+                      setAuthError(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    &larr; Back to Login
+                  </button>
+                  <button
+                    type="button"
+                    disabled={resendCooldown > 0}
+                    onClick={handleResendCode}
+                    className="text-cyan-400 hover:text-cyan-300 font-mono font-semibold disabled:text-gray-600 disabled:cursor-not-allowed flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${resendCooldown > 0 ? 'animate-spin' : ''}`} />
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                  </button>
+                </div>
               </div>
-              <h2 className="text-2xl font-black font-heading text-gray-100">
-                {isRegister ? 'Initialize Secure Vault' : 'Authenticate Session'}
-              </h2>
-              <p className="text-xs text-gray-400 font-mono">
-                {isRegister ? 'Generates RSA-2048 PKI keypair on registration' : 'Sign in to decrypt stored files and secrets'}
-              </p>
-            </div>
+            ) : (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/30">
+                    <Shield className="w-7 h-7 text-white drop-shadow-md" />
+                  </div>
+                  <h2 className="text-2xl font-black font-heading text-gray-100">
+                    {isRegister ? 'Initialize Secure Vault' : 'Authenticate Session'}
+                  </h2>
+                  <p className="text-xs text-gray-400 font-mono">
+                    {isRegister ? 'Generates RSA-2048 PKI keypair on registration' : 'Sign in to decrypt stored files and secrets'}
+                  </p>
+                </div>
 
             <form onSubmit={handleAuthSubmit} className="space-y-4">
               {isRegister && (
@@ -433,18 +580,20 @@ const MainApp = () => {
             </form>
 
 
-            <div className="text-center text-xs text-gray-400">
-              {isRegister ? 'Already have an encrypted vault?' : "Don't have a vault account?"}{' '}
-              <button
-                onClick={() => {
-                  setIsRegister(!isRegister);
-                  setAuthError(null);
-                }}
-                className="text-cyan-400 font-bold hover:underline ml-1"
-              >
-                {isRegister ? 'Sign In' : 'Register Account'}
-              </button>
-            </div>
+                <div className="text-center text-xs text-gray-400">
+                  {isRegister ? 'Already have an encrypted vault?' : "Don't have a vault account?"}{' '}
+                  <button
+                    onClick={() => {
+                      setIsRegister(!isRegister);
+                      setAuthError(null);
+                    }}
+                    className="text-cyan-400 font-bold hover:underline ml-1"
+                  >
+                    {isRegister ? 'Sign In' : 'Register Account'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

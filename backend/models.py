@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 from datetime import datetime, timezone
 from sqlalchemy import String, Integer, BigInteger, Boolean, DateTime, ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,6 +24,11 @@ class User(Base):
     storage_quota_bytes: Mapped[int] = mapped_column(BigInteger, default=DEFAULT_STORAGE_QUOTA_BYTES)
     storage_used_bytes: Mapped[int] = mapped_column(BigInteger, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+    # Email Verification
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    verification_code: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    verification_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
     folders = relationship("Folder", back_populates="user", cascade="all, delete-orphan")
     files = relationship("FileItem", back_populates="user", cascade="all, delete-orphan")
