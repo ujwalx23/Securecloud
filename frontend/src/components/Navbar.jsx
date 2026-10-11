@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield,
   Upload,
@@ -35,6 +36,8 @@ export const Navbar = ({
 }) => {
   const { user, logout } = useAuth();
   const { theme, toggleTheme, isDayMode } = useTheme();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -45,6 +48,30 @@ export const Navbar = ({
   ];
 
   const getBreadcrumbTitle = () => {
+    const path = location?.pathname || '';
+    if (path === '/' || path === '/overview') return 'Overview Workspace';
+    if (path === '/files') return 'My Cloud Storage';
+    if (path === '/recent') return 'Recent Files';
+    if (path === '/favorites') return 'Starred Confidential Files';
+    if (path === '/shared') return 'Shared With Me';
+    if (path === '/shared-links') return 'Public Expirable Links';
+    if (path === '/vault') return 'Zero-Knowledge Vault';
+    if (path === '/documents' || path === '/notes') return 'Notes & Docs Workspace';
+    if (path === '/chat') return 'Private Encrypted Chat';
+    if (path === '/contacts') return 'Cryptographic Contacts';
+    if (path === '/pricing' || path === '/subscriptions') return 'Plans & Quotas';
+    if (path === '/admin') return 'Administrator Command Center';
+    if (path === '/activity' || path === '/audit') return 'Security Audit & Telemetry';
+    if (path === '/integrity') return 'Integrity Center';
+    if (path === '/analytics' || path === '/stats') return 'Storage & Quota Analytics';
+    if (path === '/trash') return 'Encrypted Trash Repository';
+    if (path === '/settings') return 'Workspace Settings';
+    if (path === '/contact') return 'Contact Support & Help Desk';
+    if (path === '/terms') return 'Terms of Service';
+    if (path === '/privacy') return 'Privacy Policy';
+    if (path === '/security') return 'Security Architecture';
+    if (path === '/permissions') return 'Device Permissions';
+
     switch (activeTab) {
       case 'overview': return 'Overview Workspace';
       case 'files': return 'My Cloud Storage';
@@ -210,6 +237,7 @@ export const Navbar = ({
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
+                    if (navigate) navigate('/settings');
                     if (setActiveTab) setActiveTab('settings');
                   }}
                   className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"
@@ -221,6 +249,7 @@ export const Navbar = ({
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
+                    if (navigate) navigate('/pricing');
                     if (setActiveTab) setActiveTab('subscriptions');
                   }}
                   className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-purple-300 hover:bg-slate-800/60 rounded-xl flex items-center justify-between transition-colors font-medium"
@@ -237,6 +266,7 @@ export const Navbar = ({
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
+                    if (navigate) navigate('/contact');
                     if (setActiveTab) setActiveTab('contact');
                   }}
                   className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"
@@ -248,6 +278,7 @@ export const Navbar = ({
                 <button
                   onClick={() => {
                     setShowUserDropdown(false);
+                    if (navigate) navigate('/terms');
                     if (setActiveTab) setActiveTab('terms');
                   }}
                   className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"

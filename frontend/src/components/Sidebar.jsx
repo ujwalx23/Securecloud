@@ -1,4 +1,5 @@
 import { useAuth } from '../context/AuthContext';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Folder,
@@ -36,38 +37,40 @@ export const Sidebar = ({
   onTriggerInstall
 }) => {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const navSections = [
     {
       title: 'WORKSPACE',
       items: [
-        { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-        { id: 'files', label: 'My Cloud', icon: Folder, badge: storageStats?.file_count || null },
-        { id: 'shared', label: 'Shared With Me', icon: Share2 },
-        { id: 'favorites', label: 'Starred Files', icon: Star },
-        { id: 'recent', label: 'Recent Files', icon: Clock },
-        { id: 'documents', label: 'Notes & Docs', icon: FileText },
-        { id: 'chat', label: 'Private Chat', icon: MessageSquare },
-        { id: 'contacts', label: 'Contacts', icon: Users },
-        { id: 'subscriptions', label: 'Plans & Quotas', icon: Sparkles, badge: user?.plan_type?.toUpperCase() },
+        { id: 'overview', path: '/overview', label: 'Overview', icon: LayoutDashboard },
+        { id: 'files', path: '/files', label: 'My Cloud', icon: Folder, badge: storageStats?.file_count || null },
+        { id: 'shared', path: '/shared', label: 'Shared With Me', icon: Share2 },
+        { id: 'favorites', path: '/favorites', label: 'Starred Files', icon: Star },
+        { id: 'recent', path: '/recent', label: 'Recent Files', icon: Clock },
+        { id: 'documents', path: '/documents', label: 'Notes & Docs', icon: FileText },
+        { id: 'chat', path: '/chat', label: 'Private Chat', icon: MessageSquare },
+        { id: 'contacts', path: '/contacts', label: 'Contacts', icon: Users },
+        { id: 'subscriptions', path: '/pricing', label: 'Plans & Quotas', icon: Sparkles, badge: user?.plan_type?.toUpperCase() },
       ]
     },
     {
       title: 'SECURITY',
       items: [
-        { id: 'vault', label: 'Zero-Knowledge Vault', icon: KeyRound, isSpecial: true },
-        { id: 'activity', label: 'Security Audit', icon: Shield },
-        { id: 'integrity', label: 'Integrity Center', icon: ShieldCheck },
+        { id: 'vault', path: '/vault', label: 'Zero-Knowledge Vault', icon: KeyRound, isSpecial: true },
+        { id: 'activity', path: '/activity', label: 'Security Audit', icon: Shield },
+        { id: 'integrity', path: '/integrity', label: 'Integrity Center', icon: ShieldCheck },
       ]
     },
     {
       title: 'SYSTEM',
       items: [
-        ...(user?.is_admin ? [{ id: 'admin', label: 'Admin Console', icon: ShieldAlert, isSpecial: true }] : []),
-        { id: 'trash', label: 'Encrypted Trash', icon: Trash2 },
-        { id: 'settings', label: 'Settings', icon: Settings },
-        { id: 'contact', label: 'Contact Support', icon: Mail },
-        { id: 'terms', label: 'Terms & Policies', icon: FileText },
+        ...(user?.is_admin ? [{ id: 'admin', path: '/admin', label: 'Admin Console', icon: ShieldAlert, isSpecial: true }] : []),
+        { id: 'trash', path: '/trash', label: 'Encrypted Trash', icon: Trash2 },
+        { id: 'settings', path: '/settings', label: 'Settings', icon: Settings },
+        { id: 'contact', path: '/contact', label: 'Contact Support', icon: Mail },
+        { id: 'terms', path: '/terms', label: 'Terms & Policies', icon: FileText },
       ]
     }
   ];
@@ -132,12 +135,21 @@ export const Sidebar = ({
 
               {sec.items.map((item) => {
                 const Icon = item.icon;
-                const isActive = activeTab === item.id;
+                const isActive =
+                  location?.pathname === item.path ||
+                  (item.path === '/overview' && location?.pathname === '/') ||
+                  (item.path === '/pricing' && location?.pathname === '/subscriptions') ||
+                  (item.path === '/documents' && location?.pathname === '/notes') ||
+                  (item.path === '/activity' && location?.pathname === '/audit') ||
+                  activeTab === item.id;
 
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      if (item.path) navigate(item.path);
+                      if (setActiveTab) setActiveTab(item.id);
+                    }}
                     title={isCollapsed ? item.label : undefined}
                     className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-150 group relative ${
                       isActive
@@ -187,7 +199,11 @@ export const Sidebar = ({
             </button>
           )}
 
-          <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2.5">
+          <div
+            onClick={() => navigate('/analytics')}
+            className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2.5 cursor-pointer hover:border-cyan-500/40 transition-all group"
+            title="View Storage & Quota Analytics"
+          >
             <div className="flex items-center justify-between text-xs font-bold text-gray-200">
               <div className="flex items-center gap-1.5">
                 <HardDrive className="w-3.5 h-3.5 text-cyan-400" />

@@ -1,878 +1,111 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider, useToast } from './context/ToastContext';
-import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { WorkspaceProvider, useWorkspace } from './context/WorkspaceContext';
+
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
-import { OverviewDashboard } from './components/OverviewDashboard';
-import { FileManager } from './components/FileManager';
-import { VaultView } from './components/VaultView';
-import { ActivityLog } from './components/ActivityLog';
-import { StorageStats } from './components/StorageStats';
-import { IntegrityCenter } from './components/IntegrityCenter';
-import { SettingsView } from './components/SettingsView';
+import { PageSkeleton } from './components/common/PageSkeleton';
+
+// Modals
 import { FileUploadModal } from './components/FileUploadModal';
 import { ShareModal } from './components/ShareModal';
 import { PreviewModal } from './components/PreviewModal';
-import { PublicShareView } from './components/PublicShareView';
 import { CommandPalette } from './components/CommandPalette';
 import { FileDetailsDrawer } from './components/FileDetailsDrawer';
-import { CyberCanvas3D } from './components/CyberCanvas3D';
-import { DocumentsView } from './components/DocumentsView';
-import { ChatView } from './components/ChatView';
-import { ContactsView } from './components/ContactsView';
-import { SubscriptionsView } from './components/SubscriptionsView';
-import { AdminView } from './components/AdminView';
-import { ContactView } from './components/ContactView';
-import { LegalView } from './components/LegalView';
 import { DeviceOnboardingModal } from './components/DeviceOnboardingModal';
-import {
-  Shield,
-  Lock,
-  ArrowRight,
-  CheckCircle2,
-  KeyRound,
-  Eye,
-  EyeOff,
-  Server,
-  Zap,
-  Cpu,
-  Fingerprint,
-  Mail,
-  RefreshCw,
-  Smartphone,
-  Download,
-  FileText,
-  Sun,
-  Moon
-} from 'lucide-react';
 
-const MainApp = () => {
-  const { theme, toggleTheme, isDayMode } = useTheme();
-  const { user, token, loading, login, register, loginWithGoogle, verifyEmail, resendCode } = useAuth();
+// Lucide
+import { Shield } from 'lucide-react';
+
+// Code-split Lazy-Loaded Independent Feature Pages / Sub-websites
+const OverviewPage = lazy(() => import('./pages/OverviewPage'));
+const FilesPage = lazy(() => import('./pages/FilesPage'));
+const RecentFilesPage = lazy(() => import('./pages/RecentFilesPage'));
+const FavoritesPage = lazy(() => import('./pages/FavoritesPage'));
+const SharedWithMePage = lazy(() => import('./pages/SharedWithMePage'));
+const SharedLinksPage = lazy(() => import('./pages/SharedLinksPage'));
+const TrashPage = lazy(() => import('./pages/TrashPage'));
+const VaultPage = lazy(() => import('./pages/VaultPage'));
+const DocumentsPage = lazy(() => import('./pages/DocumentsPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const ContactsPage = lazy(() => import('./pages/ContactsPage'));
+const SubscriptionsPage = lazy(() => import('./pages/SubscriptionsPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const ActivityPage = lazy(() => import('./pages/ActivityPage'));
+const IntegrityPage = lazy(() => import('./pages/IntegrityPage'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const PublicSharePage = lazy(() => import('./pages/PublicSharePage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+
+/**
+ * AppLayout: Main shell with persistent route-aware Navbar and Sidebar,
+ * lazy-loaded page outlets, and global modals.
+ */
+const AppLayout = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState('overview');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [storageStats, setStorageStats] = useState(null);
-  const [recentFilesList, setRecentFilesList] = useState([]);
 
-  // Command palette state
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const {
+    storageStats,
+    recentFilesList,
+    searchQuery,
+    setSearchQuery,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
+    showUploadModal,
+    setShowUploadModal,
+    shareFile,
+    setShareFile,
+    previewFile,
+    setPreviewFile,
+    selectedFileForDrawer,
+    setSelectedFileForDrawer,
+    isCommandPaletteOpen,
+    setIsCommandPaletteOpen,
+    installPrompt,
+    handleTriggerInstall,
+    handleDownload,
+    handleToggleFavorite,
+    handleToggleTrash,
+    fetchStats,
+    fetchRecentFiles
+  } = useWorkspace();
 
-  // File Details Drawer
-  const [selectedFileForDrawer, setSelectedFileForDrawer] = useState(null);
-
-  // URL routing for public share links
-  const [shareCode, setShareCode] = useState(() => {
-    const path = window.location.pathname;
-    const match = path.match(/^\/share\/([a-zA-Z0-9_-]+)/);
-    if (match) return match[1];
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('share')) return params.get('share');
-    const hash = window.location.hash;
-    const hashMatch = hash.match(/^#\/share\/([a-zA-Z0-9_-]+)/);
-    if (hashMatch) return hashMatch[1];
-    return null;
-  });
-
-  // Auth form states
-  const [isRegister, setIsRegister] = useState(false);
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [authError, setAuthError] = useState(null);
-  const [authLoading, setAuthLoading] = useState(false);
-  const [activeConvIdForChat, setActiveConvIdForChat] = useState(null);
-
-  // Email verification state
-  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
-
-  // Modals state
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [shareFile, setShareFile] = useState(null);
-  const [previewFile, setPreviewFile] = useState(null);
-  const [showLegalModal, setShowLegalModal] = useState(false);
-  const [legalInitialTab, setLegalInitialTab] = useState('terms');
-  const [showContactModal, setShowContactModal] = useState(false);
-  const [installPrompt, setInstallPrompt] = useState(null);
-
-  // Capture PWA Install Prompt
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault();
-      setInstallPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-  }, []);
-
-  const handleTriggerInstall = async () => {
-    if (!installPrompt) return;
-    try {
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        showToast({
-          type: 'success',
-          title: 'SecureCloud Installed',
-          message: 'Web App successfully installed to your device!'
-        });
-      }
-    } catch (err) {
-      console.warn('Install prompt error:', err);
-    }
-    setInstallPrompt(null);
-  };
-
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '593769489522-jkbfd18upg9e4cha237sueeasf94j02k.apps.googleusercontent.com';
-
-  const handleGoogleCredential = useCallback(async (response) => {
-    if (!response?.credential) return;
-    setAuthLoading(true);
-    setAuthError(null);
-    try {
-      await loginWithGoogle(response.credential);
-      showToast({
-        type: 'success',
-        title: 'Authenticated via Google',
-        message: 'Zero-knowledge session decrypted and authorized.'
-      });
-    } catch (err) {
-      setAuthError(err.message);
-      showToast({
-        type: 'error',
-        title: 'Google Login Failed',
-        message: err.message
-      });
-    } finally {
-      setAuthLoading(false);
-    }
-  }, [loginWithGoogle, showToast]);
-
-  useEffect(() => {
-    if (user) return;
-    const initGsi = () => {
-      if (window.google?.accounts?.id) {
-        try {
-          window.google.accounts.id.initialize({
-            client_id: googleClientId,
-            callback: handleGoogleCredential,
-            auto_select: false
-          });
-          const btnEl = document.getElementById('googleSignInBtnContainer');
-          if (btnEl) {
-            btnEl.innerHTML = '';
-            window.google.accounts.id.renderButton(btnEl, {
-              theme: 'filled_black',
-              size: 'large',
-              width: 320,
-              text: isRegister ? 'signup_with' : 'signin_with',
-              shape: 'pill'
-            });
-          }
-        } catch (e) {
-          console.warn('Google GSI note:', e);
-        }
-      }
-    };
-
-    const interval = setInterval(() => {
-      if (window.google?.accounts?.id) {
-        initGsi();
-        clearInterval(interval);
-      }
-    }, 250);
-
-    return () => clearInterval(interval);
-  }, [user, isRegister, googleClientId, handleGoogleCredential]);
-
-  const fetchStats = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetch('/api/stats/summary', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setStorageStats(await res.json());
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [token]);
-
-  const fetchRecentFiles = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetch('/api/files', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const files = await res.json();
-        setRecentFilesList(files);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  }, [token]);
-
-  useEffect(() => {
-    const handlePopState = () => {
-      const path = window.location.pathname;
-      const match = path.match(/^\/share\/([a-zA-Z0-9_-]+)/);
-      if (match) setShareCode(match[1]);
-      else {
-        const params = new URLSearchParams(window.location.search);
-        setShareCode(params.get('share') || null);
-      }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-    fetchRecentFiles();
-  }, [fetchStats, fetchRecentFiles, activeTab]);
-
-  // Global Ctrl+K Command Palette Shortcut
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        setIsCommandPaletteOpen((prev) => !prev);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  if (shareCode) {
-    return (
-      <PublicShareView
-        shareCode={shareCode}
-        onGoToApp={() => {
-          window.history.pushState({}, '', '/');
-          setShareCode(null);
-        }}
-      />
-    );
-  }
-
-  const handleAuthSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError(null);
-
-    if (isRegister) {
-      if (!username.trim() || !/^[a-zA-Z0-9_]{3,30}$/.test(username.trim())) {
-        setAuthError('Username must be 3-30 alphanumeric characters or underscores.');
-        return;
-      }
-      if (password.length < 8) {
-        setAuthError('Password must be at least 8 characters long for secure key derivation.');
-        return;
-      }
-    }
-
-    setAuthLoading(true);
-    try {
-      if (isRegister) {
-        const regRes = await register(email, username, password, fullName);
-        setIsVerifyingEmail(true);
-        setVerificationCode(''); // Clean empty field - user must manually enter OTP from email
-        showToast({
-          type: 'info',
-          title: 'Verification Code Sent',
-          message: `A 6-digit confirmation code was dispatched to ${email}. Check your email inbox.`
-        });
-      } else {
-        await login(email, password);
-        showToast({
-          type: 'success',
-          title: 'Session Authenticated',
-          message: 'Zero-knowledge session decrypted and authorized.'
-        });
-      }
-    } catch (err) {
-      if (err.isUnverified) {
-        setIsVerifyingEmail(true);
-      }
-      setAuthError(err.message);
-      showToast({
-        type: 'error',
-        title: 'Authentication Failed',
-        message: err.message
-      });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleVerifyEmailSubmit = async (e) => {
-    e.preventDefault();
-    setAuthError(null);
-    if (!verificationCode || verificationCode.trim().length !== 6) {
-      setAuthError('Please enter the complete 6-digit code.');
-      return;
-    }
-    setAuthLoading(true);
-    try {
-      await verifyEmail(email, verificationCode.trim());
-      showToast({
-        type: 'success',
-        title: 'Email Verified',
-        message: 'Your account is active! Logging in...'
-      });
-      setIsVerifyingEmail(false);
-      setVerificationCode('');
-      if (password) {
-        await login(email, password);
-      } else {
-        setIsRegister(false);
-      }
-    } catch (err) {
-      setAuthError(err.message);
-      showToast({
-        type: 'error',
-        title: 'Verification Failed',
-        message: err.message
-      });
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
-  const handleResendCode = async () => {
-    if (resendCooldown > 0) return;
-    try {
-      await resendCode(email);
-      setVerificationCode(''); // Clean empty field - user enters code from email
-      showToast({
-        type: 'info',
-        title: 'Verification Code Sent',
-        message: `Fresh verification code dispatched to ${email}. Check your email inbox.`
-      });
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (err) {
-      showToast({
-        type: 'error',
-        title: 'Resend Failed',
-        message: err.message
-      });
-    }
-  };
-
-  const handleDownload = async (file) => {
-    try {
-      const res = await fetch(`/api/files/${file.id}/download`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error('Download failed');
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.original_name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      showToast({
-        type: 'success',
-        title: 'Payload Decrypted',
-        message: `Successfully decrypted & downloaded ${file.original_name}`
-      });
-    } catch (err) {
-      showToast({
-        type: 'error',
-        title: 'Decryption Error',
-        message: err.message
-      });
-    }
-  };
-
-  const handleToggleFavorite = async (item, isFolder) => {
-    try {
-      const endpoint = isFolder ? `/api/folders/${item.id}/favorite` : `/api/files/${item.id}/favorite`;
-      await fetch(endpoint, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchRecentFiles();
-      fetchStats();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleToggleTrash = async (item, isFolder) => {
-    try {
-      const endpoint = isFolder ? `/api/folders/${item.id}/trash` : `/api/files/${item.id}/trash`;
-      await fetch(endpoint, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchRecentFiles();
-      fetchStats();
-      showToast({
-        type: 'warning',
-        title: 'Item Moved to Trash',
-        message: `${item.original_name || item.name} moved to encrypted trash.`
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleDeletePermanent = async (item, isFolder) => {
-    try {
-      const endpoint = isFolder ? `/api/folders/${item.id}` : `/api/files/${item.id}`;
-      await fetch(endpoint, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchRecentFiles();
-      fetchStats();
-      showToast({
-        type: 'info',
-        title: 'Permanently Deleted',
-        message: `Ciphertext erased from storage.`
-      });
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  if (loading && !user) {
-    return (
-      <div className="min-h-screen bg-[#050811] flex flex-col items-center justify-center text-cyan-400 font-mono text-xs space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center animate-pulse">
-          <Shield className="w-6 h-6 text-cyan-400" />
-        </div>
-        <p className="animate-pulse">Initializing SecureCloud Hybrid Cryptographic Engine...</p>
-        <button
-          onClick={() => {
-            try { localStorage.removeItem('securecloud_token'); } catch {}
-            window.location.reload();
-          }}
-          className="text-[10px] text-gray-500 hover:text-cyan-400 underline font-mono mt-2 transition-colors"
-        >
-          Taking a moment? Click to open sign-in immediately &rarr;
-        </button>
-      </div>
-    );
-  }
-
-  // 3D Impressive Authentication & Hero Landing Screen
   if (!user) {
-    return (
-      <div className="min-h-screen bg-[#050811] flex items-center justify-center p-4 lg:p-12 relative overflow-hidden text-gray-100">
-        {/* Top-Right Theme Toggle on Landing Screen (Icon Only) */}
-        <div className="absolute top-5 right-5 z-30">
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle theme"
-            className="p-2.5 rounded-xl border border-slate-800/80 bg-slate-900/70 hover:bg-slate-800 text-gray-300 hover:text-cyan-300 transition-all backdrop-blur-md shadow-lg flex items-center justify-center"
-          >
-            {isDayMode ? (
-              <Sun className="w-5 h-5 text-amber-500 animate-spin-slow" />
-            ) : (
-              <Moon className="w-5 h-5 text-cyan-400" />
-            )}
-          </button>
-        </div>
-
-        {/* Background Ambient Glow Lights */}
-        <div className="absolute top-1/4 left-1/4 w-[650px] h-[650px] bg-cyan-500/10 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute bottom-1/4 right-1/4 w-[550px] h-[550px] bg-indigo-600/12 rounded-full blur-[150px] pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-purple-600/5 rounded-full blur-[180px] pointer-events-none" />
-
-        <div className="max-w-6xl w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
-          
-          {/* Left Column: 3D Interactive Cyber Canvas & Features */}
-          <div className="space-y-6 text-left">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500/15 to-indigo-500/15 border border-cyan-500/35 text-cyan-300 text-xs font-mono font-semibold shadow-lg shadow-cyan-500/10">
-              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-              RSA-2048 PKI + AES-256-GCM Cryptographic Framework
-            </div>
-
-            <h1 className="text-4xl lg:text-5xl font-black font-heading tracking-tight leading-tight">
-              Zero-Knowledge <span className="gradient-text">Encrypted Storage</span> & Shared Data Vault
-            </h1>
-
-            <p className="text-sm text-gray-400 leading-relaxed max-w-lg font-medium">
-              Enterprise-grade hybrid cryptography combining asymmetric 2048-bit RSA key distribution with hardware-accelerated AES-256-GCM authenticated payload ciphers.
-            </p>
-
-            {/* Interactive 3D Earth Globe Canvas */}
-            <div className="glass-panel p-2 h-72 border-cyan-500/25 relative flex items-center justify-center shadow-2xl overflow-hidden group">
-              <CyberCanvas3D />
-              <div className="absolute bottom-3 left-4 text-[10px] font-mono text-cyan-300 flex items-center gap-2 pointer-events-none bg-slate-950/80 px-3 py-1 rounded-lg border border-cyan-500/30 backdrop-blur-md">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
-                <span>Interactive 3D Cryptographic Earth • Click & Drag to Rotate</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-gray-300">
-              <div className="flex items-center gap-2.5 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Zero-Knowledge Architecture</span>
-              </div>
-              <div className="flex items-center gap-2.5 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>SHA-256 Stream Integrity</span>
-              </div>
-              <div className="flex items-center gap-2.5 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Expirable Password Links</span>
-              </div>
-              <div className="flex items-center gap-2.5 bg-slate-950/40 p-2.5 rounded-xl border border-slate-800">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>Real-Time Audit Trail</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column: Glassmorphic Auth Form */}
-          <div className="glass-panel p-8 space-y-6 border-slate-800/80 shadow-2xl relative">
-            {isVerifyingEmail ? (
-              <div className="space-y-6 animate-fade-in">
-                <div className="text-center space-y-2">
-                  <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-500/40 text-cyan-400 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/20">
-                    <Mail className="w-7 h-7 drop-shadow-md" />
-                  </div>
-                  <h2 className="text-2xl font-black font-heading text-gray-100">
-                    Verify Your Email
-                  </h2>
-                  <p className="text-xs text-gray-400">
-                    Enter the 6-digit confirmation code dispatched to:
-                  </p>
-                  <p className="text-xs font-mono font-bold text-cyan-400">
-                    {email}
-                  </p>
-                  <p className="text-[11px] text-gray-400/80">
-                    (Check your inbox or Spam/Junk folder if not visible)
-                  </p>
-                </div>
-
-                <form onSubmit={handleVerifyEmailSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5 text-center">
-                      6-Digit Security Code
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      autoFocus
-                      placeholder="• • • • • •"
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, ''))}
-                      className="input-field text-center font-mono text-2xl tracking-[0.5em] py-3.5 bg-slate-950/90 border-cyan-500/40 text-cyan-300 focus:border-cyan-400"
-                    />
-                  </div>
-
-                  {authError && (
-                    <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
-                      <span>{authError}</span>
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={authLoading}
-                    className="btn-primary w-full justify-center text-xs py-3 shadow-lg shadow-cyan-500/25"
-                  >
-                    {authLoading ? 'Verifying Security Code...' : 'Verify & Activate Vault'}{' '}
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </form>
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsVerifyingEmail(false);
-                      setAuthError(null);
-                    }}
-                    className="text-gray-400 hover:text-gray-200 transition-colors"
-                  >
-                    &larr; Back to Login
-                  </button>
-                  <button
-                    type="button"
-                    disabled={resendCooldown > 0}
-                    onClick={handleResendCode}
-                    className="text-cyan-400 hover:text-cyan-300 font-mono font-semibold disabled:text-gray-600 disabled:cursor-not-allowed flex items-center gap-1.5"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${resendCooldown > 0 ? 'animate-spin' : ''}`} />
-                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="text-center space-y-2">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center mx-auto shadow-xl shadow-cyan-500/30">
-                    <Shield className="w-7 h-7 text-white drop-shadow-md" />
-                  </div>
-                  <h2 className="text-2xl font-black font-heading text-gray-100">
-                    {isRegister ? 'Initialize Secure Vault' : 'Authenticate Session'}
-                  </h2>
-                  <p className="text-xs text-gray-400 font-mono">
-                    {isRegister ? 'Generates RSA-2048 PKI keypair on registration' : 'Sign in to decrypt stored files and secrets'}
-                  </p>
-                </div>
-
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {isRegister && (
-                <>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">Unique Username</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. alex_sec"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                      className="input-field text-xs py-3 font-mono"
-                    />
-                    <p className="text-[10px] text-gray-500 font-mono mt-1">3-30 letters, numbers, or underscores</p>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-300 mb-1.5">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Ujwal Singh"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="input-field text-xs py-3"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                  {isRegister ? 'Account Email' : 'Email or Username'}
-                </label>
-                <input
-                  type={isRegister ? 'email' : 'text'}
-                  required
-                  placeholder={isRegister ? 'your@gmail.com' : 'your@gmail.com or alex_sec'}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input-field text-xs py-3"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">Master Password</label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    minLength={8}
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input-field text-xs py-3 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400 focus:outline-none transition-colors"
-                    tabIndex={-1}
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-
-                {isRegister && password && (
-                  <div className="space-y-1 mt-2">
-                    <div className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="text-gray-400">Password Strength:</span>
-                      <span className={password.length >= 12 ? 'text-emerald-400 font-semibold' : password.length >= 8 ? 'text-amber-400 font-semibold' : 'text-rose-400 font-semibold'}>
-                        {password.length < 8 ? 'Too Short (min 8 chars)' : password.length >= 12 ? 'Strong (High Entropy)' : 'Good'}
-                      </span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-300 ${
-                          password.length < 8 ? 'w-1/4 bg-rose-500' : password.length >= 12 ? 'w-full bg-emerald-500' : 'w-2/3 bg-amber-500'
-                        }`}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {authError && (
-                <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
-                  <span>{authError}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="btn-primary w-full justify-center text-xs py-3 shadow-lg shadow-cyan-500/25"
-              >
-                {authLoading
-                  ? 'Verifying Cryptographic Credentials...'
-                  : isRegister
-                  ? 'Generate RSA Keys & Create Vault'
-                  : 'Authenticate & Decrypt Session'}{' '}
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-
-            {/* Google Authentication Section */}
-            <div className="space-y-3 pt-1">
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-slate-800" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-mono">
-                  <span className="bg-[#0b1022] px-3 text-gray-500">Or continue with</span>
-                </div>
-              </div>
-
-              <div className="flex flex-col items-center justify-center">
-                {/* Official Google Identity Services Render Target */}
-                <div id="googleSignInBtnContainer" className="flex justify-center min-h-[44px] w-full" />
-              </div>
-            </div>
-
-            <div className="text-center text-xs text-gray-400">
-                  {isRegister ? 'Already have an encrypted vault?' : "Don't have a vault account?"}{' '}
-                  <button
-                    onClick={() => {
-                      setIsRegister(!isRegister);
-                      setAuthError(null);
-                    }}
-                    className="text-cyan-400 font-bold hover:underline ml-1"
-                  >
-                    {isRegister ? 'Sign In' : 'Register Account'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Auth Screen Footer Links */}
-        <div className="absolute bottom-4 left-0 right-0 z-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-gray-400 font-mono px-4">
-          <button
-            onClick={() => {
-              setLegalInitialTab('terms');
-              setShowLegalModal(true);
-            }}
-            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Terms of Service</span>
-          </button>
-          <span className="text-gray-700 hidden sm:inline">•</span>
-          <button
-            onClick={() => {
-              setLegalInitialTab('privacy');
-              setShowLegalModal(true);
-            }}
-            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
-          >
-            <Shield className="w-3.5 h-3.5" />
-            <span>Privacy Policy</span>
-          </button>
-          <span className="text-gray-700 hidden sm:inline">•</span>
-          <button
-            onClick={() => setShowContactModal(true)}
-            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
-          >
-            <Mail className="w-3.5 h-3.5" />
-            <span>Contact Support</span>
-          </button>
-          {installPrompt && (
-            <>
-              <span className="text-gray-700 hidden sm:inline">•</span>
-              <button
-                onClick={handleTriggerInstall}
-                className="text-purple-400 hover:text-purple-300 font-bold transition-colors flex items-center gap-1.5 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20"
-              >
-                <Smartphone className="w-3.5 h-3.5" />
-                <span>Install Web App</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* First-Time Device Permissions & Onboarding */}
-        <DeviceOnboardingModal
-          installPrompt={installPrompt}
-          onTriggerInstall={handleTriggerInstall}
-          onOpenLegal={(tab) => {
-            setLegalInitialTab(tab || 'terms');
-            setShowLegalModal(true);
-          }}
-          onOpenContact={() => setShowContactModal(true)}
-        />
-
-        {/* Legal Modal Overlay (Logged-out) */}
-        {showLegalModal && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-            <div className="w-full max-w-5xl my-auto">
-              <LegalView
-                initialTab={legalInitialTab}
-                onClose={() => setShowLegalModal(false)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Contact Modal Overlay (Logged-out) */}
-        {showContactModal && (
-          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-            <div className="w-full max-w-4xl my-auto">
-              <ContactView
-                onClose={() => setShowContactModal(false)}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
+
+  const handleCommandNavigate = (destination) => {
+    if (!destination) return;
+    if (destination.startsWith('/')) {
+      navigate(destination);
+    } else {
+      navigate(`/${destination}`);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#050811] text-gray-100 p-4 md:p-6 max-w-[1680px] mx-auto animate-fade-in">
+    <div className="min-h-screen bg-[#050811] text-gray-100 p-3 sm:p-4 md:p-6 max-w-[1680px] mx-auto animate-fade-in">
       <Navbar
         onOpenUpload={() => setShowUploadModal(true)}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
         installPrompt={installPrompt}
         onTriggerInstall={handleTriggerInstall}
       />
 
-      <div className="flex gap-6 items-start">
+      <div className="flex gap-4 sm:gap-6 items-start">
         <Sidebar
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
           storageStats={storageStats}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={setIsSidebarCollapsed}
@@ -881,60 +114,13 @@ const MainApp = () => {
         />
 
         <main className="flex-1 min-w-0">
-          {activeTab === 'overview' && (
-            <OverviewDashboard
-              user={user}
-              storageStats={storageStats}
-              recentFiles={recentFilesList}
-              onOpenUpload={() => setShowUploadModal(true)}
-              onNavigate={(tab) => setActiveTab(tab)}
-              onPreview={(file) => setPreviewFile(file)}
-              onDownload={handleDownload}
-              onShare={(file) => setShareFile(file)}
-              onToggleFavorite={handleToggleFavorite}
-              onToggleTrash={handleToggleTrash}
-              onDeletePermanent={handleDeletePermanent}
-              onInspectFile={(file) => setSelectedFileForDrawer(file)}
-              onRefresh={() => { fetchStats(); fetchRecentFiles(); }}
-            />
-          )}
-
-          {(activeTab === 'files' || activeTab === 'recent' || activeTab === 'favorites' || activeTab === 'shared' || activeTab === 'shared_links' || activeTab === 'trash') && (
-            <FileManager
-              activeTab={activeTab}
-              searchQuery={searchQuery}
-              onOpenUpload={() => setShowUploadModal(true)}
-              onPreview={(file) => setPreviewFile(file)}
-              onDownload={handleDownload}
-              onShare={(file) => setShareFile(file)}
-              onUpdateStats={() => { fetchStats(); fetchRecentFiles(); }}
-              onInspectFile={(file) => setSelectedFileForDrawer(file)}
-            />
-          )}
-
-          {activeTab === 'documents' && <DocumentsView />}
-          {activeTab === 'chat' && <ChatView initialConversationId={activeConvIdForChat} />}
-          {activeTab === 'contacts' && (
-            <ContactsView
-              onStartChat={(convId) => {
-                setActiveConvIdForChat(convId);
-                setActiveTab('chat');
-              }}
-            />
-          )}
-          {activeTab === 'subscriptions' && <SubscriptionsView />}
-          {activeTab === 'admin' && user?.is_admin && <AdminView />}
-          {activeTab === 'vault' && <VaultView />}
-          {activeTab === 'activity' && <ActivityLog />}
-          {activeTab === 'integrity' && <IntegrityCenter storageStats={storageStats} />}
-          {activeTab === 'stats' && <StorageStats stats={storageStats} />}
-          {activeTab === 'settings' && <SettingsView storageStats={storageStats} />}
-          {activeTab === 'contact' && <ContactView />}
-          {activeTab === 'terms' && <LegalView />}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
 
-      {/* Modals & Drawers */}
+      {/* Global Modals & Drawers */}
       {showUploadModal && (
         <FileUploadModal
           onClose={() => setShowUploadModal(false)}
@@ -968,9 +154,9 @@ const MainApp = () => {
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
-        onNavigate={(tab) => setActiveTab(tab)}
+        onNavigate={handleCommandNavigate}
         onOpenUpload={() => setShowUploadModal(true)}
-        onOpenNewFolder={() => setActiveTab('files')}
+        onOpenNewFolder={() => navigate('/files')}
         recentFiles={recentFilesList}
       />
 
@@ -990,36 +176,190 @@ const MainApp = () => {
       <DeviceOnboardingModal
         installPrompt={installPrompt}
         onTriggerInstall={handleTriggerInstall}
-        onOpenLegal={(tab) => {
-          setLegalInitialTab(tab || 'terms');
-          setShowLegalModal(true);
-        }}
-        onOpenContact={() => setShowContactModal(true)}
+        onOpenLegal={() => navigate('/terms')}
+        onOpenContact={() => navigate('/contact')}
+      />
+    </div>
+  );
+};
+
+/**
+ * Main application routes orchestrator
+ */
+const AppContent = () => {
+  const { user, loading } = useAuth();
+
+  if (loading && !user) {
+    return (
+      <div className="min-h-screen bg-[#050811] flex flex-col items-center justify-center text-cyan-400 font-mono text-xs space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center animate-pulse">
+          <Shield className="w-6 h-6 text-cyan-400" />
+        </div>
+        <p className="animate-pulse">Initializing SecureCloud Hybrid Cryptographic Engine...</p>
+        <button
+          onClick={() => {
+            try { localStorage.removeItem('securecloud_token'); } catch {}
+            window.location.href = '/login';
+          }}
+          className="text-[10px] text-gray-500 hover:text-cyan-400 underline font-mono mt-2 transition-colors"
+        >
+          Taking a moment? Click to open sign-in immediately &rarr;
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Routes>
+      {/* Public Standalone Pages (Zero main-bundle load) */}
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<PageSkeleton />}>
+            <AuthPage initialMode="login" />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <Suspense fallback={<PageSkeleton />}>
+            <AuthPage initialMode="register" />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/verify-email"
+        element={
+          <Suspense fallback={<PageSkeleton />}>
+            <AuthPage initialMode="verify" />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/share/:shareCode"
+        element={
+          <Suspense fallback={<PageSkeleton />}>
+            <PublicSharePage />
+          </Suspense>
+        }
       />
 
-      {/* Legal Modal Overlay */}
-      {showLegalModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="w-full max-w-5xl my-auto">
-            <LegalView
-              initialTab={legalInitialTab}
-              onClose={() => setShowLegalModal(false)}
-            />
-          </div>
-        </div>
-      )}
+      {/* Standalone Legal & Help Sub-websites (Accessible public or within app) */}
+      <Route
+        path="/contact"
+        element={
+          user ? (
+            <AppLayout />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <div className="min-h-screen bg-[#050811] p-6 max-w-4xl mx-auto flex items-center">
+                <ContactPage />
+              </div>
+            </Suspense>
+          )
+        }
+      >
+        {user && <Route index element={<ContactPage />} />}
+      </Route>
 
-      {/* Contact Modal Overlay */}
-      {showContactModal && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
-          <div className="w-full max-w-4xl my-auto">
-            <ContactView
-              onClose={() => setShowContactModal(false)}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+      <Route
+        path="/terms"
+        element={
+          user ? (
+            <AppLayout />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <div className="min-h-screen bg-[#050811] p-6 max-w-5xl mx-auto">
+                <LegalPage />
+              </div>
+            </Suspense>
+          )
+        }
+      >
+        {user && <Route index element={<LegalPage />} />}
+      </Route>
+
+      <Route
+        path="/privacy"
+        element={
+          user ? (
+            <AppLayout />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <div className="min-h-screen bg-[#050811] p-6 max-w-5xl mx-auto">
+                <LegalPage />
+              </div>
+            </Suspense>
+          )
+        }
+      >
+        {user && <Route index element={<LegalPage />} />}
+      </Route>
+
+      <Route
+        path="/security"
+        element={
+          user ? (
+            <AppLayout />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <div className="min-h-screen bg-[#050811] p-6 max-w-5xl mx-auto">
+                <LegalPage />
+              </div>
+            </Suspense>
+          )
+        }
+      >
+        {user && <Route index element={<LegalPage />} />}
+      </Route>
+
+      <Route
+        path="/permissions"
+        element={
+          user ? (
+            <AppLayout />
+          ) : (
+            <Suspense fallback={<PageSkeleton />}>
+              <div className="min-h-screen bg-[#050811] p-6 max-w-5xl mx-auto">
+                <LegalPage />
+              </div>
+            </Suspense>
+          )
+        }
+      >
+        {user && <Route index element={<LegalPage />} />}
+      </Route>
+
+      {/* Protected Multi-Page Sub-websites */}
+      <Route element={<AppLayout />}>
+        <Route path="/" element={<Navigate to="/overview" replace />} />
+        <Route path="/overview" element={<OverviewPage />} />
+        <Route path="/files" element={<FilesPage />} />
+        <Route path="/recent" element={<RecentFilesPage />} />
+        <Route path="/favorites" element={<FavoritesPage />} />
+        <Route path="/shared" element={<SharedWithMePage />} />
+        <Route path="/shared-links" element={<SharedLinksPage />} />
+        <Route path="/trash" element={<TrashPage />} />
+        <Route path="/vault" element={<VaultPage />} />
+        <Route path="/documents" element={<DocumentsPage />} />
+        <Route path="/notes" element={<DocumentsPage />} />
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/contacts" element={<ContactsPage />} />
+        <Route path="/pricing" element={<SubscriptionsPage />} />
+        <Route path="/subscriptions" element={<SubscriptionsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+        <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/audit" element={<ActivityPage />} />
+        <Route path="/integrity" element={<IntegrityPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/stats" element={<AnalyticsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* 404 Sub-website */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Route>
+    </Routes>
   );
 };
 
@@ -1028,7 +368,11 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
-          <MainApp />
+          <BrowserRouter>
+            <WorkspaceProvider>
+              <AppContent />
+            </WorkspaceProvider>
+          </BrowserRouter>
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>

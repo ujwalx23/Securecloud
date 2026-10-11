@@ -1,33 +1,8 @@
 @import "tailwindcss";
 
 @layer base {
-  /* Day Mode (DEFAULT) */
+  /* Night Mode (DEFAULT) */
   :root,
-  html.light,
-  [data-theme="light"] {
-    --bg-main: #f8fafc;
-    --bg-surface: #ffffff;
-    --bg-surface-elevated: #f1f5f9;
-    --bg-surface-hover: #e2e8f0;
-    --bg-glass: rgba(255, 255, 255, 0.88);
-    
-    --border-subtle: #e2e8f0;
-    --border-light: #cbd5e1;
-    --border-accent: rgba(2, 132, 199, 0.4);
-
-    --neon-cyan: #0284c7;
-    --neon-indigo: #6366f1;
-    --neon-purple: #9333ea;
-    --neon-emerald: #059669;
-    --neon-rose: #e11d48;
-    --neon-amber: #d97706;
-
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
-    --text-muted: #64748b;
-  }
-
-  /* Night Mode */
   html.dark,
   [data-theme="dark"] {
     --bg-main: #050811;
@@ -50,6 +25,31 @@
     --text-primary: #f8fafc;
     --text-secondary: #cbd5e1;
     --text-muted: #94a3b8;
+  }
+
+  /* Day Mode (High-Contrast & Refined Grinding) */
+  html.light,
+  [data-theme="light"] {
+    --bg-main: #f8fafc;
+    --bg-surface: #ffffff;
+    --bg-surface-elevated: #f1f5f9;
+    --bg-surface-hover: #e2e8f0;
+    --bg-glass: rgba(255, 255, 255, 0.95);
+    
+    --border-subtle: #cbd5e1;
+    --border-light: #94a3b8;
+    --border-accent: rgba(2, 132, 199, 0.6);
+
+    --neon-cyan: #0284c7;
+    --neon-indigo: #4f46e5;
+    --neon-purple: #7e22ce;
+    --neon-emerald: #059669;
+    --neon-rose: #e11d48;
+    --neon-amber: #d97706;
+
+    --text-primary: #090d16;
+    --text-secondary: #1e293b;
+    --text-muted: #475569;
   }
 
   body {
@@ -175,38 +175,38 @@ html.dark .glass-card:hover {
     0 0 16px rgba(99, 102, 241, 0.15);
 }
 
-/* Glassmorphic Components - Day Mode (DEFAULT) */
+/* Glassmorphic Components - Day Mode */
 html:not(.dark) .glass-panel,
 html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  border: 1px solid #cbd5e1;
   box-shadow: 
-    inset 0 1px 1px 0 rgba(255, 255, 255, 0.95),
-    0 10px 30px -8px rgba(15, 23, 42, 0.06),
-    0 2px 6px -1px rgba(15, 23, 42, 0.03);
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1),
+    0 10px 30px -8px rgba(15, 23, 42, 0.08),
+    0 2px 6px -1px rgba(15, 23, 42, 0.04);
   border-radius: 16px;
-  color: #0f172a;
+  color: #090d16;
 }
 
 html:not(.dark) .glass-card,
 html.light .glass-card {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #cbd5e1;
   border-radius: 14px;
-  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 4px 14px -2px rgba(15, 23, 42, 0.06);
   transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-  color: #0f172a;
+  color: #090d16;
 }
 
 html:not(.dark) .glass-card:hover,
 html.light .glass-card:hover {
-  border-color: rgba(2, 132, 199, 0.45);
+  border-color: #0284c7;
   transform: translateY(-2px);
   box-shadow: 
-    0 12px 28px -6px rgba(2, 132, 199, 0.14),
-    0 0 12px rgba(99, 102, 241, 0.08);
+    0 12px 28px -6px rgba(2, 132, 199, 0.16),
+    0 0 12px rgba(99, 102, 241, 0.09);
 }
 
 /* Gradient Text */
@@ -481,21 +481,23 @@ html.light .hover\:bg-slate-900\/60:hover {
 }
 
 html:not(.dark) .border-slate-800,
+html:not(.dark) .border-slate-800\/50,
 html:not(.dark) .border-slate-800\/60,
 html:not(.dark) .border-slate-800\/80,
 html:not(.dark) .border-slate-700,
 html:not(.dark) .border-slate-700\/80,
 html.light .border-slate-800,
+html.light .border-slate-800\/50,
 html.light .border-slate-800\/60,
 html.light .border-slate-800\/80,
 html.light .border-slate-700,
 html.light .border-slate-700\/80 {
-  border-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
 }
 
 html:not(.dark) .text-gray-100,
 html.light .text-gray-100 {
-  color: #0f172a !important;
+  color: #090d16 !important;
 }
 
 html:not(.dark) .text-gray-200,
@@ -510,17 +512,17 @@ html.light .text-gray-300 {
 
 html:not(.dark) .text-gray-400,
 html.light .text-gray-400 {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
 html:not(.dark) .text-gray-500,
 html.light .text-gray-500 {
-  color: #94a3b8 !important;
+  color: #64748b !important;
 }
 
 html:not(.dark) .text-gray-600,
 html.light .text-gray-600 {
-  color: #cbd5e1 !important;
+  color: #94a3b8 !important;
 }
 
 html:not(.dark) .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
@@ -529,7 +531,7 @@ html:not(.dark) .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]),
 html.light .divide-slate-800 > :not([hidden]) ~ :not([hidden]),
 html.light .divide-slate-800\/60 > :not([hidden]) ~ :not([hidden]),
 html.light .divide-slate-800\/80 > :not([hidden]) ~ :not([hidden]) {
-  border-color: #e2e8f0 !important;
+  border-color: #cbd5e1 !important;
 }
 
 /* Animations */

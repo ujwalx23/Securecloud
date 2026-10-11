@@ -3,11 +3,11 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 const ThemeContext = createContext();
 
 export const ThemeProvider = ({ children }) => {
-  // Day Mode is DEFAULT per user requirement
+  // Night Mode (dark) is DEFAULT per user requirement
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('securecloud_theme');
     if (saved === 'dark' || saved === 'light') return saved;
-    return 'light'; // Default is Day Mode
+    return 'dark'; // Default is Night Mode
   });
 
   useEffect(() => {

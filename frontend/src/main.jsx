@@ -3,9 +3,9 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
 
-// Initialize Day Mode (default) or saved theme early to prevent flash
+// Initialize Night Mode (default) or saved theme early to prevent flash
 try {
-  const initialTheme = localStorage.getItem('securecloud_theme') || 'light';
+  const initialTheme = localStorage.getItem('securecloud_theme') || 'dark';
   document.documentElement.classList.toggle('dark', initialTheme === 'dark');
   document.documentElement.classList.toggle('light', initialTheme === 'light');
   document.documentElement.setAttribute('data-theme', initialTheme);
