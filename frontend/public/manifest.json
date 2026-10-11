@@ -1,0 +1,57 @@
+{
+  "name": "SecureCloud — Zero-Knowledge Cloud Storage",
+  "short_name": "SecureCloud",
+  "description": "Enterprise zero-knowledge encrypted cloud storage with client-side RSA-2048 and AES-256-GCM encryption.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#050811",
+  "theme_color": "#050811",
+  "lang": "en",
+  "categories": ["productivity", "utilities", "security"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "My Cloud Storage",
+      "short_name": "Cloud",
+      "description": "Access your primary encrypted storage vault",
+      "url": "/#files",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Zero-Knowledge Vault",
+      "short_name": "Vault",
+      "description": "Unlock your confidential secrets & passwords",
+      "url": "/#vault",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Shared With Me",
+      "short_name": "Shared",
+      "description": "View encrypted files received from peers",
+      "url": "/#shared",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Private Chat",
+      "short_name": "Chat",
+      "description": "Real-time encrypted peer messaging",
+      "url": "/#chat",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    }
+  ]
+}

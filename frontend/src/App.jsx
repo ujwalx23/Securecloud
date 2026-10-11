@@ -22,6 +22,9 @@ import { ChatView } from './components/ChatView';
 import { ContactsView } from './components/ContactsView';
 import { SubscriptionsView } from './components/SubscriptionsView';
 import { AdminView } from './components/AdminView';
+import { ContactView } from './components/ContactView';
+import { LegalView } from './components/LegalView';
+import { DeviceOnboardingModal } from './components/DeviceOnboardingModal';
 import {
   Shield,
   Lock,
@@ -35,7 +38,10 @@ import {
   Cpu,
   Fingerprint,
   Mail,
-  RefreshCw
+  RefreshCw,
+  Smartphone,
+  Download,
+  FileText
 } from 'lucide-react';
 
 const MainApp = () => {
@@ -86,6 +92,38 @@ const MainApp = () => {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [shareFile, setShareFile] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalInitialTab, setLegalInitialTab] = useState('terms');
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState(null);
+
+  // Capture PWA Install Prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleTriggerInstall = async () => {
+    if (!installPrompt) return;
+    try {
+      installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      if (choice.outcome === 'accepted') {
+        showToast({
+          type: 'success',
+          title: 'SecureCloud Installed',
+          message: 'Web App successfully installed to your device!'
+        });
+      }
+    } catch (err) {
+      console.warn('Install prompt error:', err);
+    }
+    setInstallPrompt(null);
+  };
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '593769489522-jkbfd18upg9e4cha237sueeasf94j02k.apps.googleusercontent.com';
 
@@ -714,6 +752,85 @@ const MainApp = () => {
             )}
           </div>
         </div>
+
+        {/* Auth Screen Footer Links */}
+        <div className="absolute bottom-4 left-0 right-0 z-20 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-gray-400 font-mono px-4">
+          <button
+            onClick={() => {
+              setLegalInitialTab('terms');
+              setShowLegalModal(true);
+            }}
+            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Terms of Service</span>
+          </button>
+          <span className="text-gray-700 hidden sm:inline">•</span>
+          <button
+            onClick={() => {
+              setLegalInitialTab('privacy');
+              setShowLegalModal(true);
+            }}
+            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+          >
+            <Shield className="w-3.5 h-3.5" />
+            <span>Privacy Policy</span>
+          </button>
+          <span className="text-gray-700 hidden sm:inline">•</span>
+          <button
+            onClick={() => setShowContactModal(true)}
+            className="hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span>Contact Support</span>
+          </button>
+          {installPrompt && (
+            <>
+              <span className="text-gray-700 hidden sm:inline">•</span>
+              <button
+                onClick={handleTriggerInstall}
+                className="text-purple-400 hover:text-purple-300 font-bold transition-colors flex items-center gap-1.5 bg-purple-500/10 px-2.5 py-1 rounded-lg border border-purple-500/20"
+              >
+                <Smartphone className="w-3.5 h-3.5" />
+                <span>Install Web App</span>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* First-Time Device Permissions & Onboarding */}
+        <DeviceOnboardingModal
+          installPrompt={installPrompt}
+          onTriggerInstall={handleTriggerInstall}
+          onOpenLegal={(tab) => {
+            setLegalInitialTab(tab || 'terms');
+            setShowLegalModal(true);
+          }}
+          onOpenContact={() => setShowContactModal(true)}
+        />
+
+        {/* Legal Modal Overlay (Logged-out) */}
+        {showLegalModal && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+            <div className="w-full max-w-5xl my-auto">
+              <LegalView
+                initialTab={legalInitialTab}
+                onClose={() => setShowLegalModal(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Contact Modal Overlay (Logged-out) */}
+        {showContactModal && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+            <div className="w-full max-w-4xl my-auto">
+              <ContactView
+                onClose={() => setShowContactModal(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -727,6 +844,8 @@ const MainApp = () => {
         setActiveTab={setActiveTab}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
+        installPrompt={installPrompt}
+        onTriggerInstall={handleTriggerInstall}
       />
 
       <div className="flex gap-6 items-start">
@@ -736,6 +855,8 @@ const MainApp = () => {
           storageStats={storageStats}
           isCollapsed={isSidebarCollapsed}
           setIsCollapsed={setIsSidebarCollapsed}
+          installPrompt={installPrompt}
+          onTriggerInstall={handleTriggerInstall}
         />
 
         <main className="flex-1 min-w-0">
@@ -786,6 +907,8 @@ const MainApp = () => {
           {activeTab === 'integrity' && <IntegrityCenter storageStats={storageStats} />}
           {activeTab === 'stats' && <StorageStats stats={storageStats} />}
           {activeTab === 'settings' && <SettingsView storageStats={storageStats} />}
+          {activeTab === 'contact' && <ContactView />}
+          {activeTab === 'terms' && <LegalView />}
         </main>
       </div>
 
@@ -839,6 +962,40 @@ const MainApp = () => {
           onToggleFavorite={handleToggleFavorite}
           onToggleTrash={handleToggleTrash}
         />
+      )}
+
+      {/* First-Time Device Permissions & Onboarding */}
+      <DeviceOnboardingModal
+        installPrompt={installPrompt}
+        onTriggerInstall={handleTriggerInstall}
+        onOpenLegal={(tab) => {
+          setLegalInitialTab(tab || 'terms');
+          setShowLegalModal(true);
+        }}
+        onOpenContact={() => setShowContactModal(true)}
+      />
+
+      {/* Legal Modal Overlay */}
+      {showLegalModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="w-full max-w-5xl my-auto">
+            <LegalView
+              initialTab={legalInitialTab}
+              onClose={() => setShowLegalModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal Overlay */}
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-fade-in">
+          <div className="w-full max-w-4xl my-auto">
+            <ContactView
+              onClose={() => setShowContactModal(false)}
+            />
+          </div>
+        </div>
       )}
     </div>
   );

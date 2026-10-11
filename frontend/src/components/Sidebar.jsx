@@ -20,7 +20,10 @@ import {
   MessageSquare,
   Users,
   Sparkles,
-  ShieldAlert
+  ShieldAlert,
+  Mail,
+  Download,
+  Smartphone
 } from 'lucide-react';
 
 export const Sidebar = ({
@@ -28,7 +31,9 @@ export const Sidebar = ({
   setActiveTab,
   storageStats,
   isCollapsed,
-  setIsCollapsed
+  setIsCollapsed,
+  installPrompt,
+  onTriggerInstall
 }) => {
   const { user } = useAuth();
 
@@ -61,6 +66,8 @@ export const Sidebar = ({
         ...(user?.is_admin ? [{ id: 'admin', label: 'Admin Console', icon: ShieldAlert, isSpecial: true }] : []),
         { id: 'trash', label: 'Encrypted Trash', icon: Trash2 },
         { id: 'settings', label: 'Settings', icon: Settings },
+        { id: 'contact', label: 'Contact Support', icon: Mail },
+        { id: 'terms', label: 'Terms & Policies', icon: FileText },
       ]
     }
   ];
@@ -167,6 +174,19 @@ export const Sidebar = ({
       {/* Bottom Storage Quota Card */}
       {!isCollapsed ? (
         <div className="space-y-2 pt-3 border-t border-slate-800/80">
+          {installPrompt && (
+            <button
+              onClick={onTriggerInstall}
+              className="w-full p-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 border border-cyan-500/40 hover:border-cyan-400 text-cyan-300 flex items-center justify-between text-xs font-semibold transition-all group shadow-sm shadow-cyan-500/10 mb-2"
+            >
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span>Install Web App</span>
+              </div>
+              <Download className="w-3.5 h-3.5 text-cyan-400" />
+            </button>
+          )}
+
           <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 space-y-2.5">
             <div className="flex items-center justify-between text-xs font-bold text-gray-200">
               <div className="flex items-center gap-1.5">
@@ -196,7 +216,16 @@ export const Sidebar = ({
           </div>
         </div>
       ) : (
-        <div className="pt-2 border-t border-slate-800 flex justify-center">
+        <div className="pt-2 border-t border-slate-800 flex flex-col items-center gap-2">
+          {installPrompt && (
+            <button
+              onClick={onTriggerInstall}
+              title="Install Web App"
+              className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 hover:bg-cyan-500/30 transition-all"
+            >
+              <Smartphone className="w-4 h-4" />
+            </button>
+          )}
           <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-cyan-400" title={`Storage: ${percentage}% used`}>
             <HardDrive className="w-4 h-4" />
           </div>

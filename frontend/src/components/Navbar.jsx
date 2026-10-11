@@ -12,7 +12,11 @@ import {
   Sparkles,
   Lock,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  Download,
+  Smartphone,
+  Mail,
+  FileText
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -22,7 +26,9 @@ export const Navbar = ({
   activeTab,
   setActiveTab,
   searchQuery,
-  setSearchQuery
+  setSearchQuery,
+  installPrompt,
+  onTriggerInstall
 }) => {
   const { user, logout } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -48,6 +54,8 @@ export const Navbar = ({
       case 'stats': return 'Storage & Quota Analytics';
       case 'trash': return 'Encrypted Trash Repository';
       case 'settings': return 'Workspace Settings';
+      case 'contact': return 'Contact Support & Help Desk';
+      case 'terms': return 'Terms, Privacy & Legal Policies';
       default: return 'SecureCloud Storage';
     }
   };
@@ -96,6 +104,17 @@ export const Navbar = ({
 
       {/* Right: Actions, Notifications & Profile */}
       <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0 ml-auto">
+        {/* Install Web App Button */}
+        {installPrompt && (
+          <button
+            onClick={onTriggerInstall}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-gradient-to-r from-purple-500/20 via-indigo-500/20 to-cyan-500/20 border border-purple-500/40 hover:border-purple-400 text-purple-300 hover:text-white transition-all shadow-md shadow-purple-500/15"
+          >
+            <Smartphone className="w-3.5 h-3.5 text-purple-400" />
+            <span className="hidden xs:inline">Install App</span>
+          </button>
+        )}
+
         {/* Upload Button */}
         <button
           onClick={onOpenUpload}
@@ -196,6 +215,28 @@ export const Navbar = ({
                   <span className="text-[9px] font-mono font-bold text-purple-300 uppercase px-1.5 py-0.5 rounded bg-purple-500/10 border border-purple-500/20">
                     {user?.is_promotional_premium ? 'Promo #1' : (user?.plan_type || 'Basic')}
                   </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    if (setActiveTab) setActiveTab('contact');
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"
+                >
+                  <Mail className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Contact Support</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    if (setActiveTab) setActiveTab('terms');
+                  }}
+                  className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:text-cyan-300 hover:bg-slate-800/60 rounded-xl flex items-center gap-2 transition-colors font-medium"
+                >
+                  <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Terms & Privacy</span>
                 </button>
               </div>
 
