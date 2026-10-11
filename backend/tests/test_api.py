@@ -157,3 +157,25 @@ def test_email_verification_edge_cases():
         assert good_verify.status_code == 200
         assert good_verify.json()["verified"] is True
 
+def test_unverified_user_reregister():
+    import time
+    test_email = f"rereg_{int(time.time()*1000)}@securecloud.io"
+    with TestClient(app) as client:
+        # 1. Register first time but don't enter OTP
+        res1 = client.post(
+            "/api/auth/register",
+            json={"email": test_email, "password": "OriginalPassword1!", "full_name": "First Attempt"}
+        )
+        assert res1.status_code == 201
+        assert res1.json()["is_verified"] is False
+
+        # 2. Register second time with same email (unverified)
+        res2 = client.post(
+            "/api/auth/register",
+            json={"email": test_email, "password": "UpdatedPassword2!", "full_name": "Second Attempt"}
+        )
+        # Succeeded smoothly without "already registered" error!
+        assert res2.status_code == 200 or res2.status_code == 201
+        assert res2.json()["full_name"] == "Second Attempt"
+        assert res2.json()["is_verified"] is False
+

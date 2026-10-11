@@ -31,11 +31,35 @@ async def register_user(user_in: UserRegister, db: AsyncSession = Depends(get_db
         )
 
     result = await db.execute(select(User).where(User.email == clean_email))
-    if result.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email address already registered."
-        )
+    existing_user = result.scalar_one_or_none()
+    if existing_user:
+        if existing_user.is_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email address already registered. Please sign in."
+            )
+        else:
+            # User previously registered but didn't finish email verification.
+            # Update password with their latest attempt, issue a fresh OTP, and send email!
+            existing_user.hashed_password = get_password_hash(user_in.password)
+            if user_in.full_name:
+                existing_user.full_name = user_in.full_name
+
+            verification_code = generate_verification_code()
+            existing_user.verification_code = verification_code
+            existing_user.verification_expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
+
+            activity = ActivityLog(
+                user_id=existing_user.id,
+                action_type="UNVERIFIED_REREGISTER",
+                description="Unverified account re-registered. Fresh verification OTP sent."
+            )
+            db.add(activity)
+            await db.commit()
+            await db.refresh(existing_user)
+
+            await send_verification_email(clean_email, verification_code, existing_user.full_name)
+            return existing_user
 
     # Hybrid Cryptography: Generate RSA-2048 Asymmetric Keypair
     user_id = str(uuid.uuid4())
