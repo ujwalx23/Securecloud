@@ -17,7 +17,14 @@ import {
   Sparkles,
   ShieldCheck,
   Search,
-  ArrowUpRight
+  ArrowUpRight,
+  UserX,
+  Ban,
+  User,
+  CheckCircle2,
+  Lock,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { FileCard } from './FileCard';
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +43,13 @@ export const FileManager = ({
   const [folders, setFolders] = useState([]);
   const [files, setFiles] = useState([]);
   const [sharedWithMeItems, setSharedWithMeItems] = useState([]);
+  const [mySharesItems, setMySharesItems] = useState([]);
+  const [sharedSubTab, setSharedSubTab] = useState('inbound'); // 'inbound' | 'outbound'
+  const [downloadingFileId, setDownloadingFileId] = useState(null);
+  const [blockingSenderId, setBlockingSenderId] = useState(null);
+  const [revokingShareId, setRevokingShareId] = useState(null);
+  const [blockConfirmModal, setBlockConfirmModal] = useState(null);
+  const [shareSuccessToast, setShareSuccessToast] = useState(null);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [folderPath, setFolderPath] = useState([]);
   const [viewMode, setViewMode] = useState('grid');
@@ -55,12 +69,17 @@ export const FileManager = ({
     setAccessError(null);
     try {
       if (activeTab === 'shared') {
-        const res = await fetch('/api/shares/shared-with-me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setSharedWithMeItems(data);
+        const [inboundRes, outboundRes] = await Promise.all([
+          fetch('/api/shares/shared-with-me', { headers: { Authorization: `Bearer ${token}` } }),
+          fetch('/api/shares/my-shares', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        if (inboundRes.ok) {
+          const inData = await inboundRes.json();
+          setSharedWithMeItems(inData);
+        }
+        if (outboundRes.ok) {
+          const outData = await outboundRes.json();
+          setMySharesItems(outData);
         }
         setFolders([]);
         setFiles([]);
@@ -193,13 +212,15 @@ export const FileManager = ({
 
   const handleDownloadSharedFile = async (sharedItem) => {
     setAccessError(null);
+    const targetFileId = sharedItem.file_id || sharedItem.id;
+    setDownloadingFileId(targetFileId);
     try {
-      const res = await fetch(`/api/shares/shared-file/${sharedItem.file_id}/download`, {
+      const res = await fetch(`/api/shares/shared-file/${targetFileId}/download`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.detail || 'Access Denied: Share has been revoked by the owner.');
+        throw new Error(errData.detail || 'Access Denied: Share has been revoked by the owner or sender is blocked.');
       }
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -212,12 +233,62 @@ export const FileManager = ({
       window.URL.revokeObjectURL(url);
     } catch (err) {
       setAccessError(err.message);
+    } finally {
+      setDownloadingFileId(null);
+    }
+  };
+
+  const handleBlockSender = async (senderId) => {
+    if (!senderId) return;
+    setBlockingSenderId(senderId);
+    setAccessError(null);
+    try {
+      const res = await fetch(`/api/shares/block-sender/${senderId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to block user');
+
+      // Dismiss all files from this sender
+      setSharedWithMeItems(prev => prev.filter(item => {
+        const oId = item.owner_id || item.file_info?.owner_id;
+        return oId !== senderId;
+      }));
+      setShareSuccessToast(data.message || 'User blocked successfully. Inbound shares dismissed.');
+      setTimeout(() => setShareSuccessToast(null), 4000);
+      setBlockConfirmModal(null);
+    } catch (err) {
+      setAccessError(err.message);
+    } finally {
+      setBlockingSenderId(null);
+    }
+  };
+
+  const handleRevokeShare = async (shareId) => {
+    setRevokingShareId(shareId);
+    setAccessError(null);
+    try {
+      const res = await fetch(`/api/shares/revoke/${shareId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to revoke access');
+
+      setMySharesItems(prev => prev.map(item => item.id === shareId ? { ...item, is_revoked: true } : item));
+      setShareSuccessToast('Share revoked. The recipient can no longer decrypt this file.');
+      setTimeout(() => setShareSuccessToast(null), 4000);
+    } catch (err) {
+      setAccessError(err.message);
+    } finally {
+      setRevokingShareId(null);
     }
   };
 
   const getTabTitle = () => {
     switch (activeTab) {
-      case 'shared': return 'Files Shared With Me';
+      case 'shared': return sharedSubTab === 'inbound' ? 'Files Shared With Me' : 'Files Shared by Me';
       case 'favorites': return 'Starred Confidential Files';
       case 'trash': return 'Encrypted Trash Repository';
       default: return currentFolder ? currentFolder.name : 'Primary Encrypted Storage';
@@ -306,57 +377,261 @@ export const FileManager = ({
         </div>
       )}
 
-      {/* Shared With Me Section */}
+      {shareSuccessToast && (
+        <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2.5 shadow-lg shadow-emerald-500/10 animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{shareSuccessToast}</span>
+        </div>
+      )}
+
+      {/* Shared Section (Inbound Shared With Me & Outbound Shared by Me) */}
       {activeTab === 'shared' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest font-mono">
-              Inbound Shared Files ({sharedWithMeItems.length})
-            </h3>
-            <span className="badge badge-cyan text-[10px]">RSA Re-encrypted</span>
+        <div className="space-y-6">
+          {/* Sub-tab Navigation Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-lg">
+            <div className="flex items-center gap-2 p-1 bg-slate-950/80 rounded-xl border border-slate-800 self-start sm:self-auto">
+              <button
+                onClick={() => setSharedSubTab('inbound')}
+                className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-2 ${
+                  sharedSubTab === 'inbound'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-md'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span>Shared With Me</span>
+                <span className="badge badge-cyan text-[10px]">{sharedWithMeItems.length}</span>
+              </button>
+              <button
+                onClick={() => setSharedSubTab('outbound')}
+                className={`px-4 py-2 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-2 ${
+                  sharedSubTab === 'outbound'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-md'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span>Files Shared by Me</span>
+                <span className="badge badge-purple text-[10px]">{mySharesItems.length}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="badge badge-cyan text-[10px] font-mono">
+                RSA-2048 Cryptographic Access
+              </span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sharedWithMeItems.map((item) => (
-              <div key={item.id} className="glass-card p-5 space-y-4 relative group hover:border-cyan-500/40">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 truncate">
-                    <div className="p-2.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-400 shrink-0">
-                      <FileText className="w-5 h-5" />
+          {/* 1. INBOUND: Shared With Me */}
+          {sharedSubTab === 'inbound' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest font-mono">
+                  Inbound Encrypted Files ({sharedWithMeItems.length})
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {sharedWithMeItems.map((item) => {
+                  const ownerName = item.file_info?.owner_name || item.file_info?.owner_username || 'Secure User';
+                  const ownerUsername = item.file_info?.owner_username;
+                  const ownerEmail = item.file_info?.owner_email;
+                  const ownerId = item.owner_id || item.file_info?.owner_id;
+                  const targetFileId = item.file_id || item.id;
+                  const isDownloading = downloadingFileId === targetFileId;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="glass-card p-5 space-y-4 relative group hover:border-cyan-500/40 transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        {/* File Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 truncate">
+                            <div className="p-2.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 shrink-0 shadow">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="truncate">
+                              <h4 className="text-sm font-bold text-gray-100 truncate" title={item.file_info?.original_name}>
+                                {item.file_info?.original_name}
+                              </h4>
+                              <span className="text-[10px] font-mono text-gray-400">
+                                {(item.file_info?.file_size / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                          </div>
+                          <span className="badge badge-emerald text-[9px] shrink-0">Active</span>
+                        </div>
+
+                        {/* Who Shared With Them Details Box */}
+                        <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-gray-400 font-mono text-[10px]">
+                            <span>Sender Details:</span>
+                            {item.file_info?.created_at && (
+                              <span>{new Date(item.file_info.created_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                              {ownerName.charAt(0)}
+                            </div>
+                            <div className="truncate text-xs">
+                              <p className="font-semibold text-gray-200 truncate">{ownerName}</p>
+                              {ownerUsername && (
+                                <p className="text-[11px] text-cyan-400 font-mono truncate">@{ownerUsername}</p>
+                              )}
+                              {ownerEmail && (
+                                <p className="text-[10px] text-gray-400 font-mono truncate">{ownerEmail}</p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-800">
+                        <button
+                          onClick={() => handleDownloadSharedFile(item)}
+                          disabled={isDownloading}
+                          className="btn-primary py-1.5 px-3 text-xs flex items-center gap-1.5 flex-1 justify-center shadow-lg shadow-cyan-500/20"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>{isDownloading ? 'Decrypting...' : 'Decrypt & Download'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => setBlockConfirmModal({
+                            senderId: ownerId,
+                            senderName: ownerName,
+                            senderEmail: ownerEmail
+                          })}
+                          title="Block user from sharing files"
+                          className="p-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 transition-all text-xs flex items-center gap-1 shrink-0"
+                        >
+                          <UserX className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Block</span>
+                        </button>
+                      </div>
                     </div>
-                    <div className="truncate">
-                      <h4 className="text-sm font-bold text-gray-100 truncate">{item.file_info?.original_name}</h4>
-                      <p className="text-[11px] text-gray-400 font-mono mt-0.5 truncate">
-                        From: {item.file_info?.owner_name || item.file_info?.owner_email}
-                      </p>
-                    </div>
+                  );
+                })}
+
+                {sharedWithMeItems.length === 0 && !loading && (
+                  <div className="p-12 text-center glass-panel col-span-full space-y-3">
+                    <FileText className="w-12 h-12 text-slate-600 mx-auto opacity-70" />
+                    <h4 className="text-sm font-bold text-gray-300">No Inbound Shared Files</h4>
+                    <p className="text-xs text-gray-400 font-mono max-w-sm mx-auto">
+                      When other vault users share encrypted files with your verified email, they will appear here.
+                    </p>
                   </div>
-                  <span className="badge badge-emerald text-[9px] shrink-0">Active</span>
-                </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                <div className="flex justify-between items-center pt-3 border-t border-slate-800 text-xs">
-                  <span className="text-[11px] font-mono text-gray-400">
-                    {(item.file_info?.file_size / 1024).toFixed(1)} KB
-                  </span>
-                  <button
-                    onClick={() => handleDownloadSharedFile(item)}
-                    className="btn-primary py-1.5 px-3.5 text-xs"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Decrypt & Download
-                  </button>
-                </div>
+          {/* 2. OUTBOUND: Files Shared by Me */}
+          {sharedSubTab === 'outbound' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest font-mono">
+                  Files Shared by You ({mySharesItems.length})
+                </h3>
               </div>
-            ))}
-            {sharedWithMeItems.length === 0 && !loading && (
-              <div className="p-12 text-center glass-panel col-span-full space-y-3">
-                <FileText className="w-12 h-12 text-slate-600 mx-auto opacity-70" />
-                <h4 className="text-sm font-bold text-gray-300">No Shared Files Available</h4>
-                <p className="text-xs text-gray-400 font-mono">
-                  When other vault users share encrypted files with your email, they will appear here.
-                </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {mySharesItems.map((item) => {
+                  const recipientEmail = item.recipient_email || item.file_info?.recipient_email;
+                  const recipientName = item.file_info?.recipient_name;
+                  const recipientUsername = item.file_info?.recipient_username;
+                  const isRevoked = item.is_revoked;
+                  const isRevoking = revokingShareId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="glass-card p-5 space-y-4 relative group hover:border-purple-500/40 transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        {/* File Header */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 truncate">
+                            <div className="p-2.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 shrink-0 shadow">
+                              <Share2 className="w-5 h-5" />
+                            </div>
+                            <div className="truncate">
+                              <h4 className="text-sm font-bold text-gray-100 truncate" title={item.file_info?.original_name}>
+                                {item.file_info?.original_name}
+                              </h4>
+                              <span className="text-[10px] font-mono text-gray-400">
+                                {(item.file_info?.file_size / 1024).toFixed(1)} KB
+                              </span>
+                            </div>
+                          </div>
+                          {isRevoked ? (
+                            <span className="badge badge-rose text-[9px] shrink-0">Revoked</span>
+                          ) : (
+                            <span className="badge badge-emerald text-[9px] shrink-0">Active</span>
+                          )}
+                        </div>
+
+                        {/* Recipient Access Box */}
+                        <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs space-y-1.5">
+                          <div className="flex items-center justify-between text-gray-400 font-mono text-[10px]">
+                            <span>Access Granted To:</span>
+                            {item.file_info?.created_at && (
+                              <span>{new Date(item.file_info.created_at).toLocaleDateString()}</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center font-bold text-xs uppercase shrink-0">
+                              {(recipientName || recipientEmail || 'U').charAt(0)}
+                            </div>
+                            <div className="truncate text-xs">
+                              {recipientName && (
+                                <p className="font-semibold text-gray-200 truncate">{recipientName}</p>
+                              )}
+                              {recipientUsername && (
+                                <p className="text-[11px] text-purple-400 font-mono truncate">@{recipientUsername}</p>
+                              )}
+                              <p className="text-[10px] text-gray-400 font-mono truncate">{recipientEmail}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Bar */}
+                      <div className="pt-3 border-t border-slate-800">
+                        {!isRevoked ? (
+                          <button
+                            onClick={() => handleRevokeShare(item.id)}
+                            disabled={isRevoking}
+                            className="w-full py-1.5 px-3 text-xs rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 transition-all flex items-center justify-center gap-1.5 font-medium"
+                          >
+                            <Ban className="w-3.5 h-3.5" />
+                            <span>{isRevoking ? 'Revoking Access...' : 'Revoke Access'}</span>
+                          </button>
+                        ) : (
+                          <div className="py-1 px-3 text-[11px] rounded-xl bg-slate-900 border border-slate-800 text-gray-500 font-mono text-center">
+                            Access Revoked & Protected
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {mySharesItems.length === 0 && !loading && (
+                  <div className="p-12 text-center glass-panel col-span-full space-y-3">
+                    <Share2 className="w-12 h-12 text-slate-600 mx-auto opacity-70" />
+                    <h4 className="text-sm font-bold text-gray-300">No Outbound Shares</h4>
+                    <p className="text-xs text-gray-400 font-mono max-w-sm mx-auto">
+                      Files you securely share with other users will appear here. You can revoke access at any time.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -528,6 +803,46 @@ export const FileManager = ({
                   <span className="text-[11px] text-gray-400 font-mono">{(ver.file_size / 1024).toFixed(1)} KB</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Block Sender Confirmation Modal */}
+      {blockConfirmModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel max-w-md w-full p-6 rounded-3xl border border-rose-500/40 space-y-5 shadow-2xl relative bg-slate-950/95">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto shadow-lg">
+              <UserX className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-bold text-gray-100 font-heading">
+                Block User from File Exchange?
+              </h3>
+              <p className="text-xs text-gray-300">
+                Are you sure you want to block <strong className="text-cyan-300 font-mono">{blockConfirmModal.senderName || blockConfirmModal.senderEmail}</strong>?
+              </p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">
+                They will never be able to share files or message you again. All files currently shared with you by this user will be immediately revoked from your view.
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => handleBlockSender(blockConfirmModal.senderId)}
+                disabled={blockingSenderId !== null}
+                className="btn-danger flex-1 text-xs py-2.5 flex items-center justify-center gap-2"
+              >
+                <Ban className="w-4 h-4" />
+                <span>{blockingSenderId ? 'Blocking...' : 'Confirm Block & Dismiss'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBlockConfirmModal(null)}
+                className="btn-secondary flex-1 text-xs py-2.5"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

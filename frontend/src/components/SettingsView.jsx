@@ -41,9 +41,7 @@ export const SettingsView = ({ storageStats }) => {
   const [error, setError] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  // Security & Password Management state
-  const [passwordMode, setPasswordMode] = useState('otp'); // 'otp' | 'change'
-  const [currentPassword, setCurrentPassword] = useState('');
+  // Security & Password Management state (Unified Email OTP Flow)
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
@@ -212,55 +210,7 @@ export const SettingsView = ({ storageStats }) => {
     }
   };
 
-  // Submit standard password change
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setPasswordErrMsg('New password and confirm password do not match.');
-      return;
-    }
-    if (newPassword.length < 8) {
-      setPasswordErrMsg('New password must be at least 8 characters.');
-      return;
-    }
 
-    setPasswordLoading(true);
-    setPasswordErrMsg(null);
-    setPasswordSuccessMsg(null);
-    try {
-      const res = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          current_password: currentPassword,
-          new_password: newPassword
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to change password');
-      setPasswordSuccessMsg('Password updated successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      showToast({
-        type: 'success',
-        title: 'Password Updated',
-        message: 'Your account password has been changed.'
-      });
-    } catch (err) {
-      setPasswordErrMsg(err.message);
-      showToast({
-        type: 'error',
-        title: 'Password Change Failed',
-        message: err.message
-      });
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
@@ -482,7 +432,7 @@ export const SettingsView = ({ storageStats }) => {
         </div>
       </div>
 
-      {/* MASTER PASSWORD & SECURITY MANAGEMENT CARD */}
+      {/* MASTER PASSWORD & SECURITY MANAGEMENT CARD (UNIFIED EMAIL OTP FLOW) */}
       <div className="glass-panel p-6 border border-cyan-500/30 rounded-3xl space-y-6 shadow-2xl relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950/25 to-slate-900">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -493,43 +443,12 @@ export const SettingsView = ({ storageStats }) => {
               <h3 className="text-base font-bold font-heading text-gray-100 flex items-center gap-2">
                 <span>Master Password & Zero-Knowledge Vault Access</span>
                 <span className="badge badge-cyan text-[9px] font-mono">AES-256</span>
+                <span className="badge badge-emerald text-[9px] font-mono">Verified Email OTP</span>
               </h3>
               <p className="text-xs text-gray-400 font-mono mt-0.5">
-                Set or change your master account password used to unseal your encrypted vault
+                Set or update your master account password used to unseal your encrypted vault with verified 6-digit OTP
               </p>
             </div>
-          </div>
-
-          {/* Toggle between OTP setup and Traditional Password Change */}
-          <div className="flex items-center gap-1.5 p-1 bg-slate-950/90 rounded-xl border border-slate-800 self-start sm:self-auto">
-            <button
-              onClick={() => {
-                setPasswordMode('otp');
-                setPasswordErrMsg(null);
-                setPasswordSuccessMsg(null);
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
-                passwordMode === 'otp'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Email OTP Setup (Google / Forgot)
-            </button>
-            <button
-              onClick={() => {
-                setPasswordMode('change');
-                setPasswordErrMsg(null);
-                setPasswordSuccessMsg(null);
-              }}
-              className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all ${
-                passwordMode === 'change'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Change Known Password
-            </button>
           </div>
         </div>
 
@@ -547,189 +466,123 @@ export const SettingsView = ({ storageStats }) => {
           </div>
         )}
 
-        {passwordMode === 'otp' ? (
-          /* EMAIL OTP FLOW FOR GOOGLE SIGN-IN OR FORGOTTEN PASSWORDS */
-          <div className="space-y-4 max-w-xl">
-            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-gray-300 space-y-2">
-              <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                Google Sign-in & Zero-Knowledge Vault Access
-              </p>
-              <p className="text-gray-400 text-[11px] leading-relaxed">
-                If you signed in via Google, your account does not have a user-defined password yet. Requesting a 6-digit OTP sent to your verified email (<strong className="text-gray-200 font-mono">{user?.email}</strong>) allows you to securely establish your Master Password anytime.
-              </p>
+        {/* Unified Password Flow */}
+        <div className="space-y-4 max-w-xl">
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-gray-300 space-y-2">
+            <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              Unified Password Setup & Reset Security
+            </p>
+            <p className="text-gray-400 text-[11px] leading-relaxed">
+              Whether you originally signed in via Google or want to change/reset your existing password, a 6-digit cryptographic security code sent to your email (<strong className="text-gray-200 font-mono">{user?.email}</strong>) safely authenticates you to configure your Master Password.
+            </p>
+          </div>
+
+          {!otpSent ? (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={otpLoading}
+                className="btn-primary text-xs py-2.5 px-5 shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>{otpLoading ? 'Dispatching OTP to Email...' : 'Send 6-Digit Security OTP to My Email'}</span>
+              </button>
             </div>
-
-            {!otpSent ? (
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={otpLoading}
-                  className="btn-primary text-xs py-2.5 px-5 shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-                >
-                  <Send className="w-4 h-4" />
-                  <span>{otpLoading ? 'Dispatching OTP to Email...' : 'Send 6-Digit Security OTP to My Email'}</span>
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleSetPasswordWithOtp} className="space-y-4 pt-2">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-gray-400 font-mono text-[11px]">
-                      Enter 6-Digit Email OTP
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleSendOtp}
-                      disabled={otpLoading}
-                      className="text-[11px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
-                    >
-                      <RefreshCw className="w-3 h-3" /> Resend OTP
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                    placeholder="e.g. 849201"
-                    className="input-field text-center font-mono text-base tracking-widest py-2 bg-slate-950/90 border-slate-700"
-                  />
+          ) : (
+            <form onSubmit={handleSetPasswordWithOtp} className="space-y-4 pt-2">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-gray-400 font-mono text-[11px]">
+                    Enter 6-Digit Email OTP
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={otpLoading}
+                    className="text-[11px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
+                  >
+                    <RefreshCw className="w-3 h-3" /> Resend OTP
+                  </button>
                 </div>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="e.g. 849201"
+                  className="input-field text-center font-mono text-base tracking-widest py-2 bg-slate-950/90 border-slate-700"
+                />
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                      New Master Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showNewPass ? 'text' : 'password'}
-                        required
-                        minLength={8}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="Min 8 characters"
-                        className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPass(!showNewPass)}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
-                      >
-                        {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                      Confirm New Password
-                    </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                    New Master Password
+                  </label>
+                  <div className="relative">
                     <input
                       type={showNewPass ? 'text' : 'password'}
                       required
                       minLength={8}
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter new password"
-                      className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Min 8 characters"
+                      className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPass(!showNewPass)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                    >
+                      {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
                   </div>
                 </div>
 
-                <div className="pt-2 flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={passwordLoading}
-                    className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>{passwordLoading ? 'Verifying & Setting Password...' : 'Verify OTP & Set Master Password'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOtpSent(false)}
-                    className="btn-secondary text-xs py-2.5 px-3"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        ) : (
-          /* TRADITIONAL PASSWORD CHANGE (CURRENT + NEW) */
-          <form onSubmit={handleChangePassword} className="space-y-4 max-w-xl">
-            <div>
-              <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                Current Password
-              </label>
-              <input
-                type="password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter your existing account password"
-                className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                  New Password
-                </label>
-                <div className="relative">
+                <div>
+                  <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                    Confirm New Password
+                  </label>
                   <input
                     type={showNewPass ? 'text' : 'password'}
                     required
                     minLength={8}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min 8 characters"
-                    className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password"
+                    className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPass(!showNewPass)}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
-                  >
-                    {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                  Confirm New Password
-                </label>
-                <input
-                  type={showNewPass ? 'text' : 'password'}
-                  required
-                  minLength={8}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter new password"
-                  className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
-                />
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={passwordLoading}
+                  className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{passwordLoading ? 'Verifying & Updating Password...' : 'Verify OTP & Save Password'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtpSent(false);
+                    setOtpCode('');
+                    setNewPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="btn-secondary text-xs py-2.5 px-3"
+                >
+                  Cancel
+                </button>
               </div>
-            </div>
-
-            <div className="pt-2">
-              <button
-                type="submit"
-                disabled={passwordLoading}
-                className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
-              >
-                <Lock className="w-4 h-4" />
-                <span>{passwordLoading ? 'Updating Password...' : 'Change Password'}</span>
-              </button>
-            </div>
-          </form>
-        )}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

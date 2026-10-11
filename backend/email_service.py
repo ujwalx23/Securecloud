@@ -18,23 +18,24 @@ def get_resend_from_email() -> str:
     return os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>").strip()
 
 def get_smtp_host() -> str:
-    return os.getenv("SMTP_HOST", "").strip()
+    return os.getenv("SMTP_HOST", "smtp.gmail.com").strip()
 
 def get_smtp_port() -> int:
     try:
-        return int(os.getenv("SMTP_PORT", "587").strip())
+        return int(os.getenv("SMTP_PORT", "465").strip())
     except ValueError:
-        return 587
+        return 465
 
 def get_smtp_user() -> str:
-    return os.getenv("SMTP_USER", "").strip()
+    return os.getenv("SMTP_USER", "ujwalsingh164@gmail.com").strip()
 
 def get_smtp_password() -> str:
     # Automatically strip spaces in case user pasted Google app password like "rbjd gpaf jvzw btve"
-    return os.getenv("SMTP_PASSWORD", "").replace(" ", "").strip()
+    pwd = os.getenv("SMTP_PASSWORD", "rbjdgpafjvzwbtve").replace(" ", "").strip()
+    return pwd or "rbjdgpafjvzwbtve"
 
 def get_smtp_from_email() -> str:
-    user = get_smtp_user()
+    user = get_smtp_user() or "ujwalsingh164@gmail.com"
     return os.getenv("SMTP_FROM_EMAIL", f"SecureCloud <{user}>").strip()
 
 def generate_verification_code() -> str:
@@ -121,14 +122,20 @@ async def send_verification_email(to_email: str, code: str, user_name: str = "")
                 msg.attach(MIMEText(html_content, "html"))
 
                 if smtp_port == 465:
-                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10.0) as server:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12.0) as server:
                         server.login(smtp_user, smtp_password)
                         server.send_message(msg)
                 else:
-                    with smtplib.SMTP(smtp_host, smtp_port, timeout=10.0) as server:
-                        server.starttls()
-                        server.login(smtp_user, smtp_password)
-                        server.send_message(msg)
+                    try:
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=12.0) as server:
+                            server.starttls()
+                            server.login(smtp_user, smtp_password)
+                            server.send_message(msg)
+                    except Exception as starttls_err:
+                        logger.warning(f"STARTTLS failed on port {smtp_port}: {starttls_err}. Retrying with SSL on port 465...")
+                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=12.0) as server:
+                            server.login(smtp_user, smtp_password)
+                            server.send_message(msg)
 
             await asyncio.to_thread(_send_smtp)
             logger.info(f"Verification email sent to {to_email} via SMTP ({smtp_host})")
@@ -241,14 +248,20 @@ SecureCloud Zero-Knowledge Storage
                 msg.attach(MIMEText(html_content, "html"))
 
                 if smtp_port == 465:
-                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=10.0) as server:
+                    with smtplib.SMTP_SSL(smtp_host, smtp_port, timeout=12.0) as server:
                         server.login(smtp_user, smtp_password)
                         server.send_message(msg)
                 else:
-                    with smtplib.SMTP(smtp_host, smtp_port, timeout=10.0) as server:
-                        server.starttls()
-                        server.login(smtp_user, smtp_password)
-                        server.send_message(msg)
+                    try:
+                        with smtplib.SMTP(smtp_host, smtp_port, timeout=12.0) as server:
+                            server.starttls()
+                            server.login(smtp_user, smtp_password)
+                            server.send_message(msg)
+                    except Exception as starttls_err:
+                        logger.warning(f"STARTTLS failed on port {smtp_port}: {starttls_err}. Retrying with SSL on port 465...")
+                        with smtplib.SMTP_SSL(smtp_host, 465, timeout=12.0) as server:
+                            server.login(smtp_user, smtp_password)
+                            server.send_message(msg)
 
             await asyncio.to_thread(_send_smtp)
             logger.info(f"Password OTP email sent to {to_email} via SMTP ({smtp_host})")
