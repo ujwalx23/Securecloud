@@ -18,8 +18,11 @@ def get_resend_from_email() -> str:
     return os.getenv("RESEND_FROM_EMAIL", "SecureCloud <onboarding@resend.dev>").strip()
 
 def get_google_mail_webhook_url() -> str:
-    """Optional Google Apps Script Webhook URL: sends directly via Gmail API over HTTPS (port 443) to ANY email address worldwide."""
-    return os.getenv("GOOGLE_MAIL_WEBHOOK_URL", "").strip()
+    """Dispatches directly via Google Apps Script Webhook on user's Gmail over HTTPS (port 443) to ANY recipient worldwide."""
+    return os.getenv(
+        "GOOGLE_MAIL_WEBHOOK_URL",
+        "https://script.google.com/macros/s/AKfycbyW3uDjEFA51Z8f8k2eGPDYtow5qsLkShxhOphrkll_0bw8N3RYzUZTKSsQNpGDBlwM/exec"
+    ).strip()
 
 def get_brevo_api_key() -> str:
     """Optional Brevo REST API Key: sends over HTTPS (port 443) to any recipient globally without sandbox lock."""
