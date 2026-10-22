@@ -14,7 +14,6 @@ import {
   UserX,
   UserCheck,
   Mail,
-  KeyRound,
   Trash2,
   Edit,
   Search,
@@ -23,7 +22,6 @@ import {
   Send,
   MessageSquare,
   Shield,
-  Copy,
   AlertTriangle,
   Server,
   Database,
@@ -60,7 +58,6 @@ export const AdminView = () => {
   const [selectedInquiryModal, setSelectedInquiryModal] = useState(null);
   const [quotaEditModal, setQuotaEditModal] = useState(null); // { user, quotaMB }
   const [passwordResetModal, setPasswordResetModal] = useState(null); // { user, newPassword }
-  const [otpGeneratedModal, setOtpGeneratedModal] = useState(null); // { user, otp }
 
   const fetchAdminData = async () => {
     try {
@@ -125,25 +122,6 @@ export const AdminView = () => {
       await fetchAdminData();
     } catch (err) {
       showToast({ type: 'error', title: 'Verification Failed', message: err.message });
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleGenerateOtp = async (targetUser) => {
-    setActionLoading(`${targetUser.id}-otp`);
-    try {
-      const res = await fetch(`/api/admin/users/${targetUser.id}/generate-otp`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to generate OTP');
-      setOtpGeneratedModal({ user: targetUser, otp: data.otp_code });
-      showToast({ type: 'success', title: 'OTP Generated', message: `Code: ${data.otp_code}` });
-      await fetchAdminData();
-    } catch (err) {
-      showToast({ type: 'error', title: 'OTP Generation Failed', message: err.message });
     } finally {
       setActionLoading(null);
     }
@@ -320,7 +298,7 @@ export const AdminView = () => {
                 </span>
               </div>
               <p className="text-xs text-gray-300 font-mono mt-0.5">
-                Executive control over accounts, contact inquiries, OTP verification codes, storage quotas, and cryptographic telemetry.
+                Executive control over accounts, contact inquiries, storage quotas, and cryptographic telemetry.
               </p>
             </div>
           </div>
@@ -386,8 +364,8 @@ export const AdminView = () => {
                 : 'text-gray-400 hover:text-gray-200 bg-slate-950/60 border border-slate-800'
             }`}
           >
-            <KeyRound className="w-3.5 h-3.5" />
-            <span>Live OTPs & Audit Logs</span>
+            <Activity className="w-3.5 h-3.5" />
+            <span>Security Audit Logs</span>
           </button>
         </div>
       </div>
@@ -547,7 +525,6 @@ export const AdminView = () => {
                   <tr className="border-b border-slate-800 text-[10px] text-gray-400 font-mono uppercase bg-slate-950/60">
                     <th className="py-3 px-4">User & Name</th>
                     <th className="py-3 px-4">Email</th>
-                    <th className="py-3 px-4">Active OTP</th>
                     <th className="py-3 px-4">Plan & Quota</th>
                     <th className="py-3 px-4">Files / Used</th>
                     <th className="py-3 px-4">Status</th>
@@ -585,28 +562,6 @@ export const AdminView = () => {
                             </span>
                           )}
                         </div>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        {u.verification_code ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="badge badge-cyan text-xs font-mono font-bold px-2 py-0.5 tracking-wider">
-                              {u.verification_code}
-                            </span>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(u.verification_code);
-                                showToast({ type: 'success', title: 'OTP Copied', message: `${u.verification_code} copied` });
-                              }}
-                              className="p-1 rounded text-cyan-400 hover:text-cyan-200 hover:bg-slate-800"
-                              title="Copy OTP"
-                            >
-                              <Copy className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-600 text-[11px]">None</span>
-                        )}
                       </td>
 
                       <td className="py-3 px-4">
@@ -650,15 +605,6 @@ export const AdminView = () => {
                               Verify
                             </button>
                           )}
-
-                          <button
-                            onClick={() => handleGenerateOtp(u)}
-                            disabled={actionLoading === `${u.id}-otp`}
-                            className="px-2 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 hover:bg-cyan-500/25 border border-cyan-500/30 text-[10px] font-bold"
-                            title="Generate security OTP"
-                          >
-                            New OTP
-                          </button>
 
                           <button
                             onClick={() => setQuotaEditModal({ user: u, quotaMB: Math.round(u.storage_quota_bytes / (1024 * 1024)) })}
@@ -858,66 +804,9 @@ export const AdminView = () => {
         </div>
       )}
 
-      {/* TAB 4: LIVE OTPS & AUDIT LOGS */}
+      {/* TAB 4: SYSTEM AUDIT LOGS */}
       {activeAdminTab === 'security' && (
         <div className="space-y-6">
-          {/* Active OTP Stream */}
-          <div className="p-5 sm:p-6 rounded-3xl glass-panel border border-cyan-500/30 bg-slate-900/60 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-cyan-400" />
-                <h3 className="font-bold text-sm text-gray-100 font-heading">
-                  Real-Time Pending OTP Codes (Master Password & Activation)
-                </h3>
-              </div>
-              <span className="badge badge-cyan text-[10px] font-mono">
-                {usersList.filter(u => u.verification_code).length} Active OTPs
-              </span>
-            </div>
-
-            <p className="text-xs text-gray-400 leading-relaxed">
-              If an external email client or spam filter delays OTP delivery for a client, administrators can view and copy the live authorization code directly from here.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {usersList.filter(u => u.verification_code).map(u => (
-                <div key={u.id} className="p-3.5 rounded-2xl bg-slate-950/80 border border-cyan-500/40 flex items-center justify-between gap-3 shadow-md">
-                  <div className="min-w-0">
-                    <div className="font-bold text-xs text-gray-200 truncate">@{u.username}</div>
-                    <div className="text-[10px] text-gray-400 font-mono truncate">{u.email}</div>
-                    {u.verification_expires_at && (
-                      <div className="text-[9px] text-amber-400 font-mono mt-0.5">
-                        Expires: {new Date(u.verification_expires_at).toLocaleTimeString()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-mono text-base font-black text-cyan-300 tracking-wider bg-cyan-500/10 px-2.5 py-1 rounded-xl border border-cyan-500/30">
-                      {u.verification_code}
-                    </span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(u.verification_code);
-                        showToast({ type: 'success', title: 'Code Copied', message: `${u.verification_code} copied` });
-                      }}
-                      className="p-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-slate-800"
-                      title="Copy code"
-                    >
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {usersList.filter(u => u.verification_code).length === 0 && (
-                <div className="col-span-full p-6 text-center text-xs text-gray-500 font-mono italic">
-                  No pending verification codes or password reset OTPs right now.
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Audit Trail */}
           <div className="p-5 sm:p-6 rounded-3xl glass-panel border border-slate-800 space-y-4">
             <h3 className="font-bold text-sm text-gray-100 font-heading flex items-center gap-2">
@@ -1089,44 +978,6 @@ export const AdminView = () => {
                 Override Password
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL: Fresh OTP Generated Notification */}
-      {otpGeneratedModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-          <div className="glass-panel max-w-sm w-full p-6 rounded-3xl border border-cyan-500/40 shadow-2xl space-y-4 bg-slate-950/95 text-center">
-            <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/40 flex items-center justify-center mx-auto shadow-lg shadow-cyan-500/20">
-              <KeyRound className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-100 font-heading">
-                Security OTP Generated
-              </h3>
-              <p className="text-xs text-gray-400 mt-1">
-                For @{otpGeneratedModal.user.username} ({otpGeneratedModal.user.email})
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-slate-900 border border-cyan-500/50">
-              <div className="text-3xl font-black font-mono tracking-[0.25em] text-cyan-300">
-                {otpGeneratedModal.otp}
-              </div>
-              <div className="text-[10px] text-gray-500 font-mono mt-1">Valid for 30 minutes</div>
-            </div>
-
-            <button
-              onClick={() => {
-                navigator.clipboard.writeText(otpGeneratedModal.otp);
-                showToast({ type: 'success', title: 'OTP Copied', message: `${otpGeneratedModal.otp} copied to clipboard` });
-                setOtpGeneratedModal(null);
-              }}
-              className="btn-primary w-full text-xs py-2.5 flex items-center justify-center gap-1.5 shadow-lg shadow-cyan-500/25"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              <span>Copy Code & Close</span>
-            </button>
           </div>
         </div>
       )}

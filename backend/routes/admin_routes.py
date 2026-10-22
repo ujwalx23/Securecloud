@@ -216,8 +216,8 @@ async def list_admin_users(
             "is_admin": u.is_admin,
             "is_active": u.is_active,
             "online_status": u.online_status,
-            "verification_code": u.verification_code,
-            "verification_expires_at": u.verification_expires_at.isoformat() if u.verification_expires_at else None,
+            "verification_code": None,
+            "verification_expires_at": None,
             "has_keys": bool(u.public_key_pem and u.encrypted_private_key_pem),
             "file_count": file_counts.get(u.id, 0),
             "created_at": u.created_at.isoformat()
