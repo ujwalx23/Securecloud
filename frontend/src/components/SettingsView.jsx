@@ -32,7 +32,7 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 
 export const SettingsView = ({ storageStats }) => {
-  const { user, token, refreshProfile, updateUser, updateToken } = useAuth();
+  const { user, token, refreshProfile, updateUser, updateToken, login } = useAuth();
   const { showToast } = useToast();
   const { theme, setTheme, isDayMode } = useTheme();
 
@@ -44,6 +44,13 @@ export const SettingsView = ({ storageStats }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
+
+  // Session Re-Authentication state (for expired or invalidated tokens)
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [reauthPassword, setReauthPassword] = useState('');
+  const [reauthLoading, setReauthLoading] = useState(false);
+  const [reauthError, setReauthError] = useState(null);
+  const [showReauthPass, setShowReauthPass] = useState(false);
 
   // Sync state when user profile changes
   useEffect(() => {
@@ -96,7 +103,7 @@ export const SettingsView = ({ storageStats }) => {
   };
 
   const handleSaveProfile = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setSaving(true);
     setError(null);
 
@@ -123,6 +130,10 @@ export const SettingsView = ({ storageStats }) => {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          setShowAuthModal(true);
+          throw new Error('Your session has expired. Please sign in below to confirm and save your credentials.');
+        }
         throw new Error(data.detail || 'Failed to update credentials');
       }
 
@@ -152,6 +163,68 @@ export const SettingsView = ({ storageStats }) => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Re-authenticate and instantly retry saving profile
+  const handleReauthAndSave = async (e) => {
+    e.preventDefault();
+    setReauthLoading(true);
+    setReauthError(null);
+
+    try {
+      const loginId = user?.email || user?.username;
+      if (!loginId) {
+        window.location.href = '/login';
+        return;
+      }
+      const loginRes = await login(loginId, reauthPassword);
+      const freshToken = loginRes.access_token;
+      setShowAuthModal(false);
+      setReauthPassword('');
+
+      // Retry profile update immediately with fresh token
+      const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+      const retryRes = await fetch('/api/auth/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${freshToken}`
+        },
+        body: JSON.stringify({
+          full_name: fullName.trim() !== '' ? fullName.trim() : null,
+          username: cleanUsername,
+          bio: bio.trim() !== '' ? bio.trim() : null
+        })
+      });
+
+      const retryData = await retryRes.json();
+      if (!retryRes.ok) {
+        throw new Error(retryData.detail || 'Failed to update credentials');
+      }
+
+      if (updateUser) {
+        updateUser(retryData);
+      }
+      setFullName(retryData.full_name || '');
+      setUsername(retryData.username || '');
+      setBio(retryData.bio || '');
+      setIsEditing(false);
+      setError(null);
+
+      showToast({
+        type: 'success',
+        title: 'Credentials & Profile Updated',
+        message: `Your identity has been saved as @${cleanUsername}.`
+      });
+
+      if (refreshProfile) {
+        refreshProfile(true);
+      }
+    } catch (err) {
+      setReauthError(err.message);
+    } finally {
+      setReauthLoading(false);
     }
   };
 
@@ -363,9 +436,21 @@ export const SettingsView = ({ storageStats }) => {
           {isEditing ? (
             <form onSubmit={handleSaveProfile} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{error}</span>
+                <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{error}</span>
+                  </div>
+                  {(error.toLowerCase().includes('credentials') || error.toLowerCase().includes('expired') || error.toLowerCase().includes('session')) && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthModal(true)}
+                      className="px-3 py-1.5 bg-cyan-500/25 hover:bg-cyan-500/40 text-cyan-200 border border-cyan-500/50 rounded-xl text-xs font-semibold font-mono shrink-0 transition-all flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-cyan-300" />
+                      <span>Sign In & Save</span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -870,6 +955,96 @@ export const SettingsView = ({ storageStats }) => {
           </div>
         )}
       </div>
+
+      {/* RE-AUTHENTICATION MODAL FOR EXPIRED TOKENS */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="glass-panel max-w-md w-full p-6 border border-cyan-500/40 rounded-3xl shadow-2xl space-y-5 bg-slate-900/95 relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 flex items-center justify-center">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold font-heading text-gray-100">Session Re-Authentication</h3>
+                  <p className="text-[11px] text-gray-400 font-mono">Confirm identity to apply credentials</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-200 rounded-lg hover:bg-slate-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 text-xs leading-relaxed">
+              Your security session token expired. Enter your master password to refresh your session without losing your profile changes (@{username || user?.username}).
+            </div>
+
+            {reauthError && (
+              <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{reauthError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleReauthAndSave} className="space-y-4">
+              <div>
+                <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                  Master Password for <span className="text-cyan-300">{user?.email || user?.username}</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showReauthPass ? 'text' : 'password'}
+                    required
+                    autoFocus
+                    value={reauthPassword}
+                    onChange={(e) => setReauthPassword(e.target.value)}
+                    placeholder="Enter your master password"
+                    className="input-field text-xs py-2.5 pr-9 bg-slate-950/90 border-slate-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowReauthPass(!showReauthPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                  >
+                    {showReauthPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={reauthLoading}
+                  className="btn-primary text-xs py-2.5 px-5 shadow-lg shadow-cyan-500/25 flex-1 flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>{reauthLoading ? 'Verifying & Saving...' : 'Confirm & Save Identity'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAuthModal(false)}
+                  className="btn-secondary text-xs py-2.5 px-4"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+
+            <div className="pt-2 text-center border-t border-slate-800">
+              <a
+                href="/login"
+                className="text-[11px] text-cyan-400 hover:underline font-mono"
+              >
+                Or return to main login page &rarr;
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -61,11 +61,11 @@ export const AuthProvider = ({ children }) => {
     isFetchingRef.current = true;
 
     const controller = new AbortController();
-    // Aggressive timeout: if backend is sleeping or slow, unblock UI within 4.5s
+    // Allow sufficient time for Render free-tier cold-boot (up to 30s)
     const timeoutId = setTimeout(() => {
       controller.abort();
       setLoading(false);
-    }, 4500);
+    }, 30000);
 
     try {
       const res = await fetch('/api/auth/me', {
