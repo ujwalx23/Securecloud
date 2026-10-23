@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Settings,
   User,
@@ -32,11 +32,11 @@ import { useToast } from '../context/ToastContext';
 import { useTheme } from '../context/ThemeContext';
 
 export const SettingsView = ({ storageStats }) => {
-  const { user, token, refreshProfile } = useAuth();
+  const { user, token, refreshProfile, updateUser, updateToken } = useAuth();
   const { showToast } = useToast();
   const { theme, setTheme, isDayMode } = useTheme();
 
-  // Profile Editor state
+  // Profile Editor state (Username & Full Name Credentials)
   const [isEditing, setIsEditing] = useState(false);
   const [fullName, setFullName] = useState(user?.full_name || '');
   const [username, setUsername] = useState(user?.username || '');
@@ -45,14 +45,28 @@ export const SettingsView = ({ storageStats }) => {
   const [error, setError] = useState(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  // Security & Password Management state (Unified Email OTP Flow)
+  // Sync state when user profile changes
+  useEffect(() => {
+    if (!isEditing && user) {
+      setFullName(user.full_name || '');
+      setUsername(user.username || '');
+      setBio(user.bio || '');
+    }
+  }, [user, isEditing]);
+
+  // Security & Password Management state
+  // Mode: 'direct' (Current Password + New Password) | 'otp' (Reset via Email OTP)
+  const [passwordMode, setPasswordMode] = useState('direct');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
-  const [showNewPass, setShowNewPass] = useState(false);
   const [passwordSuccessMsg, setPasswordSuccessMsg] = useState(null);
   const [passwordErrMsg, setPasswordErrMsg] = useState(null);
 
@@ -65,6 +79,9 @@ export const SettingsView = ({ storageStats }) => {
   };
 
   const handleCancelEdit = () => {
+    setFullName(user?.full_name || '');
+    setUsername(user?.username || '');
+    setBio(user?.bio || '');
     setIsEditing(false);
     setError(null);
   };
@@ -98,24 +115,34 @@ export const SettingsView = ({ storageStats }) => {
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
-          full_name: fullName.trim() || undefined,
+          full_name: fullName.trim() !== '' ? fullName.trim() : null,
           username: cleanUsername,
-          bio: bio.trim() || undefined
+          bio: bio.trim() !== '' ? bio.trim() : null
         })
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.detail || 'Failed to update profile');
+        throw new Error(data.detail || 'Failed to update credentials');
       }
 
-      await refreshProfile();
+      if (updateUser) {
+        updateUser(data);
+      }
+      setFullName(data.full_name || '');
+      setUsername(data.username || '');
+      setBio(data.bio || '');
       setIsEditing(false);
+
       showToast({
         type: 'success',
-        title: 'Profile Updated',
+        title: 'Credentials & Profile Updated',
         message: `Your identity has been saved as @${cleanUsername}.`
       });
+
+      if (refreshProfile) {
+        refreshProfile(true);
+      }
     } catch (err) {
       setError(err.message);
       showToast({
@@ -125,6 +152,67 @@ export const SettingsView = ({ storageStats }) => {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Direct Password Change with Current Password
+  const handleDirectPasswordChange = async (e) => {
+    e.preventDefault();
+    if (!currentPassword) {
+      setPasswordErrMsg('Please enter your current password.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordErrMsg('New password and confirm password do not match.');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordErrMsg('New password must be at least 8 characters long.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    setPasswordErrMsg(null);
+    setPasswordSuccessMsg(null);
+
+    try {
+      const res = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Failed to change password');
+
+      if (data.access_token && updateToken) {
+        updateToken(data.access_token);
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordSuccessMsg(data.message || 'Master Password updated successfully!');
+      showToast({
+        type: 'success',
+        title: 'Master Credentials Updated',
+        message: 'Your account password has been updated successfully.'
+      });
+    } catch (err) {
+      setPasswordErrMsg(err.message);
+      showToast({
+        type: 'error',
+        title: 'Password Update Failed',
+        message: err.message
+      });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -198,6 +286,11 @@ export const SettingsView = ({ storageStats }) => {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Failed to set password');
+
+      if (data.access_token && updateToken) {
+        updateToken(data.access_token);
+      }
+
       setPasswordSuccessMsg(data.message || 'Master Password configured successfully!');
       setOtpCode('');
       setNewPassword('');
@@ -481,7 +574,7 @@ export const SettingsView = ({ storageStats }) => {
         </div>
       </div>
 
-      {/* MASTER PASSWORD & SECURITY MANAGEMENT CARD (UNIFIED EMAIL OTP FLOW) */}
+      {/* MASTER PASSWORD & CREDENTIALS MANAGEMENT CARD (DIRECT + EMAIL OTP OPTIONS) */}
       <div className="glass-panel p-6 border border-cyan-500/30 rounded-3xl space-y-6 shadow-2xl relative overflow-hidden bg-gradient-to-r from-slate-900 via-indigo-950/25 to-slate-900">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -490,14 +583,50 @@ export const SettingsView = ({ storageStats }) => {
             </div>
             <div>
               <h3 className="text-base font-bold font-heading text-gray-100 flex items-center gap-2">
-                <span>Master Password & Zero-Knowledge Vault Access</span>
-                <span className="badge badge-cyan text-[9px] font-mono">AES-256</span>
-                <span className="badge badge-emerald text-[9px] font-mono">Verified Email OTP</span>
+                <span>Master Credentials & Password Management</span>
+                <span className="badge badge-cyan text-[9px] font-mono">PBKDF2-HMAC</span>
+                <span className="badge badge-emerald text-[9px] font-mono">AES-256</span>
               </h3>
               <p className="text-xs text-gray-400 font-mono mt-0.5">
-                Set or update your master account password used to unseal your encrypted vault with verified 6-digit OTP
+                Update the master password used to authenticate your account and unseal your Zero-Knowledge Vault
               </p>
             </div>
+          </div>
+
+          {/* Mode Selector Tabs */}
+          <div className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => {
+                setPasswordMode('direct');
+                setPasswordErrMsg(null);
+                setPasswordSuccessMsg(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
+                passwordMode === 'direct'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Current Password</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPasswordMode('otp');
+                setPasswordErrMsg(null);
+                setPasswordSuccessMsg(null);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all flex items-center gap-1.5 ${
+                passwordMode === 'otp'
+                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Email OTP Reset</span>
+            </button>
           </div>
         </div>
 
@@ -515,123 +644,231 @@ export const SettingsView = ({ storageStats }) => {
           </div>
         )}
 
-        {/* Unified Password Flow */}
-        <div className="space-y-4 max-w-xl">
-          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-gray-300 space-y-2">
-            <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              Unified Password Setup & Reset Security
-            </p>
-            <p className="text-gray-400 text-[11px] leading-relaxed">
-              Whether you originally signed in via Google or want to change/reset your existing password, a 6-digit cryptographic security code sent to your email (<strong className="text-gray-200 font-mono">{user?.email}</strong>) safely authenticates you to configure your Master Password.
-            </p>
-          </div>
-
-          {!otpSent ? (
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleSendOtp}
-                disabled={otpLoading}
-                className="btn-primary text-xs py-2.5 px-5 shadow-lg shadow-cyan-500/20 flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                <span>{otpLoading ? 'Dispatching OTP to Email...' : 'Send 6-Digit Security OTP to My Email'}</span>
-              </button>
+        {/* DIRECT PASSWORD CHANGE FORM */}
+        {passwordMode === 'direct' && (
+          <form onSubmit={handleDirectPasswordChange} className="space-y-4 max-w-xl">
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-gray-300 space-y-1.5">
+              <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <Lock className="w-4 h-4 text-cyan-400" />
+                Direct Password Update
+              </p>
+              <p className="text-gray-400 text-[11px] leading-relaxed">
+                Enter your current master password along with your new password to update your authentication credentials immediately.
+              </p>
             </div>
-          ) : (
-            <form onSubmit={handleSetPasswordWithOtp} className="space-y-4 pt-2">
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-gray-400 font-mono text-[11px]">
-                    Enter 6-Digit Email OTP
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpLoading}
-                    className="text-[11px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
-                  >
-                    <RefreshCw className="w-3 h-3" /> Resend OTP
-                  </button>
-                </div>
+
+            <div>
+              <label className="block text-gray-400 font-mono text-[11px] mb-1">Current Password</label>
+              <div className="relative">
                 <input
-                  type="text"
+                  type={showCurrentPass ? 'text' : 'password'}
                   required
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
-                  placeholder="e.g. 849201"
-                  className="input-field text-center font-mono text-base tracking-widest py-2 bg-slate-950/90 border-slate-700"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                  className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPass(!showCurrentPass)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                >
+                  {showCurrentPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
               </div>
+            </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                    New Master Password
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showNewPass ? 'text' : 'password'}
-                      required
-                      minLength={8}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Min 8 characters"
-                      className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPass(!showNewPass)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
-                    >
-                      {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 font-mono text-[11px] mb-1">
-                    Confirm New Password
-                  </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-gray-400 font-mono text-[11px] mb-1">New Master Password</label>
+                <div className="relative">
                   <input
                     type={showNewPass ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 8 characters"
+                    className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                  >
+                    {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-400 font-mono text-[11px] mb-1">Confirm New Password</label>
+                <div className="relative">
+                  <input
+                    type={showConfirmPass ? 'text' : 'password'}
                     required
                     minLength={8}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter new password"
-                    className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
+                    className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPass(!showConfirmPass)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                  >
+                    {showConfirmPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
                 </div>
               </div>
+            </div>
 
-              <div className="pt-2 flex gap-3">
-                <button
-                  type="submit"
-                  disabled={passwordLoading}
-                  className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>{passwordLoading ? 'Verifying & Updating Password...' : 'Verify OTP & Save Password'}</span>
-                </button>
+            <div className="pt-2 flex gap-3">
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>{passwordLoading ? 'Updating Master Password...' : 'Save New Password'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordErrMsg(null);
+                  setPasswordSuccessMsg(null);
+                }}
+                className="btn-secondary text-xs py-2.5 px-3"
+              >
+                Clear
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* EMAIL OTP RESET FLOW */}
+        {passwordMode === 'otp' && (
+          <div className="space-y-4 max-w-xl">
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs text-gray-300 space-y-2">
+              <p className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                Email OTP Reset Security
+              </p>
+              <p className="text-gray-400 text-[11px] leading-relaxed">
+                If you signed in via Google or forgot your current password, request a 6-digit cryptographic security code sent to your email (<strong className="text-gray-200 font-mono">{user?.email}</strong>) to safely set your Master Password.
+              </p>
+            </div>
+
+            {!otpSent ? (
+              <div className="pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setOtpSent(false);
-                    setOtpCode('');
-                    setNewPassword('');
-                    setConfirmPassword('');
-                  }}
-                  className="btn-secondary text-xs py-2.5 px-3"
+                  onClick={handleSendOtp}
+                  disabled={otpLoading}
+                  className="btn-primary text-xs py-2.5 px-5 shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                 >
-                  Cancel
+                  <Send className="w-4 h-4" />
+                  <span>{otpLoading ? 'Dispatching OTP to Email...' : 'Send 6-Digit Security OTP to My Email'}</span>
                 </button>
               </div>
-            </form>
-          )}
-        </div>
+            ) : (
+              <form onSubmit={handleSetPasswordWithOtp} className="space-y-4 pt-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-gray-400 font-mono text-[11px]">
+                      Enter 6-Digit Email OTP
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSendOtp}
+                      disabled={otpLoading}
+                      className="text-[11px] text-cyan-400 hover:underline font-mono flex items-center gap-1"
+                    >
+                      <RefreshCw className="w-3 h-3" /> Resend OTP
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="e.g. 849201"
+                    className="input-field text-center font-mono text-base tracking-widest py-2 bg-slate-950/90 border-slate-700"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                      New Master Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showNewPass ? 'text' : 'password'}
+                        required
+                        minLength={8}
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="Min 8 characters"
+                        className="input-field text-xs py-2 pr-9 bg-slate-950/90 border-slate-700"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPass(!showNewPass)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
+                      >
+                        {showNewPass ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-gray-400 font-mono text-[11px] mb-1">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type={showNewPass ? 'text' : 'password'}
+                      required
+                      minLength={8}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="input-field text-xs py-2 bg-slate-950/90 border-slate-700"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="btn-primary text-xs py-2.5 px-6 shadow-lg shadow-cyan-500/25 flex items-center gap-2"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>{passwordLoading ? 'Verifying & Updating Password...' : 'Verify OTP & Save Password'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOtpSent(false);
+                      setOtpCode('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                    }}
+                    className="btn-secondary text-xs py-2.5 px-3"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

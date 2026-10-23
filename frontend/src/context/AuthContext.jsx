@@ -32,16 +32,40 @@ export const AuthProvider = ({ children }) => {
 
   const isFetchingRef = useRef(false);
 
-  const fetchProfile = async (authToken) => {
-    if (!authToken || isFetchingRef.current) return;
+  const updateUser = (updatedUser) => {
+    setUser(prev => {
+      const merged = { ...prev, ...updatedUser };
+      try {
+        localStorage.setItem('securecloud_user', JSON.stringify(merged));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
+      return merged;
+    });
+  };
+
+  const updateToken = (newToken) => {
+    if (newToken) {
+      try {
+        localStorage.setItem('securecloud_token', newToken);
+      } catch (e) {
+        console.warn('LocalStorage token error:', e);
+      }
+      setToken(newToken);
+    }
+  };
+
+  const fetchProfile = async (authToken, force = false) => {
+    if (!authToken) return null;
+    if (isFetchingRef.current && !force) return null;
     isFetchingRef.current = true;
 
     const controller = new AbortController();
-    // Aggressive timeout: if backend is sleeping or slow, unblock UI within 3.5s
+    // Aggressive timeout: if backend is sleeping or slow, unblock UI within 4.5s
     const timeoutId = setTimeout(() => {
       controller.abort();
       setLoading(false);
-    }, 3500);
+    }, 4500);
 
     try {
       const res = await fetch('/api/auth/me', {
@@ -58,6 +82,7 @@ export const AuthProvider = ({ children }) => {
         } catch (e) {
           console.warn('LocalStorage save error:', e);
         }
+        return data;
       } else if (res.status === 401) {
         // Stale or revoked token
         logout();
@@ -69,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       isFetchingRef.current = false;
     }
+    return null;
   };
 
   useEffect(() => {
@@ -192,7 +218,11 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={{
       user,
+      setUser,
+      updateUser,
       token,
+      setToken,
+      updateToken,
       loading,
       login,
       register,
@@ -200,7 +230,7 @@ export const AuthProvider = ({ children }) => {
       verifyEmail,
       resendCode,
       logout,
-      refreshProfile: () => fetchProfile(token)
+      refreshProfile: (force = true) => fetchProfile(token, force)
     }}>
       {children}
     </AuthContext.Provider>

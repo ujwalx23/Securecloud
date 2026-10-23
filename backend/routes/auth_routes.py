@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from typing import List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, or_, delete, desc
+from sqlalchemy import select, or_, delete, desc, func
 
 import re
 import httpx
@@ -537,11 +537,16 @@ async def get_my_profile(current_user: User = Depends(get_current_user)):
 @router.put("/me", response_model=UserResponse)
 async def update_my_profile(
     update_data: UserProfileUpdate,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    changed_fields = []
     if update_data.full_name is not None:
-        current_user.full_name = update_data.full_name.strip()
+        trimmed_name = update_data.full_name.strip()
+        current_user.full_name = trimmed_name if trimmed_name else None
+        changed_fields.append("name")
+
     if update_data.username is not None:
         clean_u = update_data.username.strip().lower()
         if not re.match(r"^[a-zA-Z0-9_]{3,30}$", clean_u):
@@ -549,25 +554,51 @@ async def update_my_profile(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Username must be 3-30 characters using only letters, numbers, and underscores."
             )
-        if clean_u != current_user.username:
-            check_u = await db.execute(select(User).where(User.username == clean_u))
+        if clean_u != current_user.username.lower():
+            check_u = await db.execute(
+                select(User).where(func.lower(User.username) == clean_u, User.id != current_user.id)
+            )
             if check_u.scalar_one_or_none():
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Username '@{clean_u}' is already taken. Please choose another."
                 )
             current_user.username = clean_u
+            changed_fields.append("username")
+        elif clean_u != current_user.username:
+            current_user.username = clean_u
+            changed_fields.append("username")
+
     if update_data.bio is not None:
-        current_user.bio = update_data.bio.strip()
+        trimmed_bio = update_data.bio.strip()
+        current_user.bio = trimmed_bio if trimmed_bio else None
+        changed_fields.append("bio")
+
     if update_data.avatar_url is not None:
-        current_user.avatar_url = update_data.avatar_url.strip()
+        trimmed_avatar = update_data.avatar_url.strip()
+        current_user.avatar_url = trimmed_avatar if trimmed_avatar else None
+        changed_fields.append("avatar_url")
+
     if update_data.privacy_profile_public is not None:
         current_user.privacy_profile_public = update_data.privacy_profile_public
+        changed_fields.append("privacy_profile_public")
+
     if update_data.privacy_allow_messages_from is not None:
         if update_data.privacy_allow_messages_from in ["connections", "all"]:
             current_user.privacy_allow_messages_from = update_data.privacy_allow_messages_from
+            changed_fields.append("privacy_allow_messages_from")
 
     current_user.updated_at = datetime.now(timezone.utc)
+
+    if changed_fields:
+        activity = ActivityLog(
+            user_id=current_user.id,
+            action_type="USER_PROFILE_UPDATED",
+            description=f"User updated profile credentials: {', '.join(changed_fields)} (Username: @{current_user.username})",
+            ip_address=get_client_ip(request)
+        )
+        db.add(activity)
+
     await db.commit()
     await db.refresh(current_user)
     return current_user
@@ -576,6 +607,7 @@ async def update_my_profile(
 @router.post("/change-password")
 async def change_password(
     data: ChangePasswordRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -588,21 +620,34 @@ async def change_password(
     current_user.hashed_password = get_password_hash(data.new_password)
     current_user.updated_at = datetime.now(timezone.utc)
 
-    # Revoke all sessions on password change
+    # Invalidate other active sessions
+    auth_header = request.headers.get("authorization", "")
+    curr_token = auth_header.replace("Bearer ", "").strip() if auth_header else ""
+    curr_token_hash = hashlib.sha256(curr_token.encode('utf-8')).hexdigest() if curr_token else None
+
     sess_res = await db.execute(
         select(UserSession).where(UserSession.user_id == current_user.id)
     )
     for sess in sess_res.scalars().all():
+        if curr_token_hash and sess.token_hash == curr_token_hash:
+            continue
         sess.is_revoked = True
+
+    # Generate fresh access token and ensure current session is active
+    new_token = create_access_token(data={"sub": current_user.id, "email": current_user.email, "username": current_user.username})
+    ip_addr = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "Unknown Browser")
+    await create_user_session(db, current_user.id, new_token, ip_addr, user_agent)
 
     activity = ActivityLog(
         user_id=current_user.id,
         action_type="PASSWORD_CHANGED",
-        description="User password successfully changed. All active sessions invalidated."
+        description="User password successfully updated.",
+        ip_address=ip_addr
     )
     db.add(activity)
     await db.commit()
-    return {"message": "Password updated successfully. Please log in again."}
+    return {"message": "Password updated successfully.", "access_token": new_token}
 
 
 @router.post("/send-password-otp")
@@ -712,21 +757,30 @@ async def set_password_with_otp(
     target_user.verification_expires_at = None
     target_user.updated_at = datetime.now(timezone.utc)
 
-    # Invalidate old sessions
+    # Invalidate other active sessions
     sess_res = await db.execute(select(UserSession).where(UserSession.user_id == target_user.id))
     for s in sess_res.scalars().all():
         s.is_revoked = True
+
+    # Issue fresh active access token so current user session continues smoothly
+    new_token = create_access_token(data={"sub": target_user.id, "email": target_user.email, "username": target_user.username})
+    ip_addr = get_client_ip(request)
+    user_agent = request.headers.get("user-agent", "Unknown Browser")
+    await create_user_session(db, target_user.id, new_token, ip_addr, user_agent)
 
     activity = ActivityLog(
         user_id=target_user.id,
         action_type="MASTER_PASSWORD_SET",
         description="Master Password configured/reset via verified email OTP.",
-        ip_address=get_client_ip(request)
+        ip_address=ip_addr
     )
     db.add(activity)
     await db.commit()
 
-    return {"message": "Master Password set successfully! You can now enter your Zero-Knowledge Vault."}
+    return {
+        "message": "Master Password set successfully! You can now enter your Zero-Knowledge Vault.",
+        "access_token": new_token
+    }
 
 
 @router.get("/sessions", response_model=List[SessionResponse])
